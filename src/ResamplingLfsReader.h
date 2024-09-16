@@ -9,16 +9,14 @@
 #include "IndexableLittleFSFile.h"
 #include "ResamplingReader.h"
 #include "LittleFS.h"
-
-// Settings for LFS buffering
-#undef RESAMPLE_BUFFER_SAMPLE_SIZE
-#undef RESAMPLE_BUFFER_COUNT
-#define RESAMPLE_BUFFER_SAMPLE_SIZE 2048
-#define RESAMPLE_BUFFER_COUNT 		  7
+#include "ResamplingSdReader.h"
 
 namespace newdigate {
 
-class ResamplingLfsReader : public ResamplingReader< IndexableLittleFSFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>, File > {
+static constexpr size_t BUFFER_SIZE_LFS = 2048;
+static constexpr size_t BUFFER_COUNT_LFS = 7;
+
+class ResamplingLfsReader : public ResamplingReader< IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>, File > {
 public:
     ResamplingLfsReader(LittleFS &fs) : 
         ResamplingReader(),
@@ -56,13 +54,12 @@ public:
         }
     }
 
-    IndexableLittleFSFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>* createSourceBuffer() override {		
-		File f = open(_filename);
-        return new IndexableLittleFSFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>(_myFS, _filename, f);
+    IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>* createSourceBuffer() override {
+        File f = open(_filename);
+        return new IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>(_myFS, _filename, f);
     }
-
-    IndexableLittleFSFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>* createSourceBuffer(File& file) override {
-        return new IndexableLittleFSFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>(_myFS, _filename, file);
+    IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>* createSourceBuffer(File& file) override {
+        return new IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>(_myFS, _filename, file);
     }
 
     uint32_t positionMillis(void) {

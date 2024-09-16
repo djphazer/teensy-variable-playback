@@ -13,15 +13,12 @@
 #include "ResamplingReader.h"
 #include "SerialFlash.h"
 
-// Settings for serial flash buffering
-#undef RESAMPLE_BUFFER_SAMPLE_SIZE
-#undef RESAMPLE_BUFFER_COUNT
-#define RESAMPLE_BUFFER_SAMPLE_SIZE 128
-#define RESAMPLE_BUFFER_COUNT 		  2
-
 namespace newdigate {
 
-class ResamplingSerialFlashReader : public ResamplingReader< IndexableSerialFlashFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>, SerialFlashFile > {
+static constexpr size_t BUFFER_SIZE_SERIALFLASH = 128;
+static constexpr size_t BUFFER_COUNT_SERIALFLASH = 2;
+
+class ResamplingSerialFlashReader : public ResamplingReader< IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>, SerialFlashFile > {
 public:
     ResamplingSerialFlashReader(SerialFlashChip &fs) : 
         ResamplingReader(),
@@ -60,13 +57,13 @@ public:
         }
     }
 
-    IndexableSerialFlashFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>* createSourceBuffer() override {
-		SerialFlashFile f = open(_filename);
-        return new IndexableSerialFlashFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>(_myFS, _filename, f);
+    IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>* createSourceBuffer() override {
+        SerialFlashFile f = open(_filename);
+        return new IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>(_myFS, _filename, f);
     }
 
-    IndexableSerialFlashFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>* createSourceBuffer(SerialFlashFile& file) override {
-        return new IndexableSerialFlashFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>(_myFS, _filename, file);
+    IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>* createSourceBuffer(SerialFlashFile& file) override {
+        return new IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>(_myFS, _filename, file);
     }
 
     uint32_t positionMillis(void) {

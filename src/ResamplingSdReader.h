@@ -15,11 +15,10 @@
 
 namespace newdigate {
 
-static constexpr size_t BUFFER_SIZE = 2048;
-static constexpr size_t BUFFER_COUNT = 7;
-static constexpr uint32_t B2M = (uint32_t)((double)4294967296000.0 / AUDIO_SAMPLE_RATE_EXACT / 2.0); // 97352592
+static constexpr size_t BUFFER_SIZE_SD = 2048;
+static constexpr size_t BUFFER_COUNT_SD = 7;
 
-class ResamplingSdReader : public ResamplingReader< IndexableSDFile<BUFFER_SIZE, BUFFER_COUNT>, File > {
+class ResamplingSdReader : public ResamplingReader< IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>, File > {
 public:
     ResamplingSdReader(SDClass &sd = SD) : 
         ResamplingReader(),
@@ -62,13 +61,13 @@ public:
         }
     }
 
-    IndexableSDFile<BUFFER_SIZE, BUFFER_COUNT>* createSourceBuffer() override {
-		File f = open(_filename);
-        return new IndexableSDFile<BUFFER_SIZE, BUFFER_COUNT>(_filename, _sd, f);
+    IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>* createSourceBuffer() override {
+        File f = open(_filename);
+        return new IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>(_filename, _sd, f);
     }
 
-    IndexableSDFile<BUFFER_SIZE, BUFFER_COUNT>* createSourceBuffer(File& file) override {
-        return new IndexableSDFile<BUFFER_SIZE, BUFFER_COUNT>(_filename, _sd, file);
+    IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>* createSourceBuffer(File& file) override {
+        return new IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>(_filename, _sd, file);
     }
 
     uint32_t positionMillis(void) {
