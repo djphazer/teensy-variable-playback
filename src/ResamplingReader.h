@@ -7,7 +7,6 @@
 #include "interpolation.h"
 #include "waveheaderparser.h"
 
-
 namespace newdigate {
 
 template<class TArray, class TFile>
@@ -111,6 +110,7 @@ public:
             return false;
         }
 
+        _tempo_bpm = 0.0;
         _file_size = file.size();
         if (isWave) {
             wav_header wav_header;
@@ -126,45 +126,92 @@ public:
                 return false;
             }
             setNumChannels(wav_header.num_channels);
-            
-            file.read(buffer, 8);
-            unsigned infoTagsSize;
-            if (!wavHeaderParser.readInfoTags((unsigned char *)buffer, 0, infoTagsSize))
-            {
-                Serial.println("Not able to read header! Aborting...");
-                return false;
-            }
 
-            file.seek(36 + infoTagsSize);
-            file.read(buffer, 8);
+            bytesRead = file.read(buffer, 8);
+            if (bytesRead != 8) return false;
+
+            unsigned dataChunkOffset = 0, chunkSize = 0;
+            while (!wavHeaderParser.readInfoTags((unsigned char *)buffer, 0, chunkSize))
+            {
+                if (    buffer[0] == 'i'
+                     && buffer[1] == 'd'
+                     && buffer[2] == '3' )
+                {
+                  Serial.println("Found 'id3' chunk");
+
+                  size_t sz = 512;
+                  char id3buf[sz];
+                  sz = file.read(id3buf, chunkSize > sz ? sz : chunkSize);
+                  uint16_t tempo = wavHeaderParser.getBPMfromID3(id3buf, sz);
+                  if (tempo) _tempo_bpm = tempo;
+                }
+
+                Serial.printf("Skipping chunk, size %u bytes\n", chunkSize);
+                dataChunkOffset += chunkSize;
+                file.seek(36 + dataChunkOffset);
+                bytesRead = file.read(buffer, 8);
+                if (bytesRead != 8) return false;
+            }
+            Serial.printf("Found 'data' chunk at %u, size: %u bytes", 36 + dataChunkOffset, chunkSize);
+
+            unsigned afterData = 36 + dataChunkOffset + chunkSize;
+            // check for metadata after the data chunk
+            do {
+              file.seek(afterData);
+              bytesRead = file.read(buffer, 8);
+              if (bytesRead != 8) break;
+
+              if (    buffer[0] == 'i'
+                   && buffer[1] == 'd'
+                   && buffer[2] == '3' )
+              {
+                Serial.println("Found 'id3' chunk after 'data'");
+
+                size_t sz = 512;
+                char id3buf[sz];
+                sz = file.read(id3buf, chunkSize > sz ? sz : chunkSize);
+                uint16_t tempo = wavHeaderParser.getBPMfromID3(id3buf, sz);
+                if (tempo) _tempo_bpm = tempo;
+
+                break;
+              }
+
+              afterData += static_cast<uint32_t>(buffer[7] << 24 | buffer[6] << 16 | buffer[5] << 8 | buffer[4]);
+              afterData += 8;
+            } while (afterData < _file_size);
+
+            // jump back to data chunk
+            file.seek(36 + dataChunkOffset);
+            bytesRead = file.read(buffer, 8);
+            if (bytesRead != 8) return false;
 
             if (!wavHeaderParser.readDataHeader((unsigned char *)buffer, 0, data_header)) {
                 Serial.println("Not able to read header! Aborting...");
                 return false;
             }
 
-            _header_offset = (44 + infoTagsSize) / 2;
-            _file_samples = ((data_header.data_bytes) / 2);//*/ + _header_offset; 
-        } else 
+            _header_offset = (44 + dataChunkOffset) / 2;
+            _file_samples = ((data_header.data_bytes) / 2) + _header_offset;
+        } else
             _file_samples = _file_size / 2;
-		
-        if (uint32_t(_file_size) <= _header_offset * sizeof(int16_t)) {
-			file.close();
+
+        if (_file_size <= _header_offset * sizeof(int16_t)) {
+            file.close();
             _playing = false;
             if (_filename) delete [] _filename;
             _filename =  nullptr;
             Serial.printf("Wave file contains no samples: %s\n", filename);
             return false;
         }
-        
-        _file_samples /= _numChannels; // make sample count same basis as loop start/finish
+
+        _file_samples /= _numChannels; // make sample coount same basis as loop start/finish
 
 		if (looptype_none == _loopType)
 		{
 			_loop_start = 0;
 			_loop_finish = _file_samples;
 		}
-        
+
 		_sourceBuffer = createSourceBuffer(file);
 		setLoopType(_loopType);
 		setLoopStart(/*_samples_to_start*/(_loop_start));
@@ -192,7 +239,7 @@ public:
     bool playRaw(const char *filename, uint16_t numChannelsIfRaw){
         return play(filename, false, numChannelsIfRaw);
     }
-    
+
     bool playWav(const char *filename){
         return play(filename, true);
     }
@@ -676,7 +723,7 @@ public:
         _playback_start = playback_start;
     }
 
-    #define B2M (uint32_t)((double)4294967296000.0 / AUDIO_SAMPLE_RATE_EXACT / 2.0) // 97352592
+    static constexpr uint32_t B2M = (uint32_t)((double)4294967296000.0 / AUDIO_SAMPLE_RATE_EXACT / 2.0); // 97352592
     uint32_t positionMillis()
     {
         return ((uint64_t)_file_size * B2M) >> 32;
@@ -702,7 +749,7 @@ public:
     bool getUseDualPlaybackHead(){
         return _useDualPlaybackHead;
     }
-    
+
     unsigned int getCrossfadeDurationInSamples() {
         return _crossfadeDurationInSamples;
     } 
@@ -714,22 +761,31 @@ public:
     int32_t getLoopFinish() {
         return  _loop_finish;// / _numChannels - _header_offset;
     }
-	
+
     void setBufferInPSRAM(bool flag){
         _bufferInPSRAM = flag;
     }
-    
+
     bool getBufferInPSRAM(){
         return _bufferInPSRAM;
     }
-    
-    
+
+    float getBPM() {
+      return _tempo_bpm;
+    }
+
+    void matchTempo(float target) {
+      if (_tempo_bpm > 0.0)
+        setPlaybackRate(target / _tempo_bpm);
+    }
+
 protected:
     volatile bool _playing = false;
 
     int32_t _file_size;
     int32_t _header_offset = 0; // == (header size in bytes ) / 2
 
+    float _tempo_bpm = 0.0;
     double _playbackRate = 1.0;
     double _remainder = 0.0;
     loop_type _loopType = loop_type::looptype_none;

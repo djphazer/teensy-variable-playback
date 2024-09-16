@@ -104,6 +104,12 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
         void setPlaybackRate(float f) {
             reader->setPlaybackRate(f);
         }
+        void matchTempo(float tempo) {
+            reader->matchTempo(tempo);
+        }
+        float getBPM() {
+            return reader->getBPM();
+        }
 
         void setLoopType(loop_type t) {
             reader->setLoopType(t);
@@ -162,6 +168,9 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 		size_t getBufferSize(void) { return reader->getBufferSize(); }
 		void getStatus(char* buf)  { return reader->getStatus(buf); }
 		void triggerReload()  { return reader->triggerReload(this); }
+        void reset() {
+            reader->reset();
+        }
 
         void update()
         {
