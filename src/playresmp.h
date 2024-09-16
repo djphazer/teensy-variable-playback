@@ -63,6 +63,12 @@ class AudioPlayResmp : public AudioStream
         void setPlaybackRate(float f) {
             reader->setPlaybackRate(f);
         }
+        void matchTempo(float tempo) {
+            reader->matchTempo(tempo);
+        }
+        float getBPM() {
+            return reader->getBPM();
+        }
 
         void setLoopType(loop_type t) {
             reader->setLoopType(t);
@@ -101,6 +107,9 @@ class AudioPlayResmp : public AudioStream
 
         void stop() {
             reader->stop();
+        }
+        void reset() {
+            reader->reset();
         }
 
         void update()
