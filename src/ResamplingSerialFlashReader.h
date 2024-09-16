@@ -13,13 +13,12 @@
 #include "ResamplingReader.h"
 #include "SerialFlash.h"
 
-#define RESAMPLE_BUFFER_SAMPLE_SIZE 128
-
-#define B2M (uint32_t)((double)4294967296000.0 / AUDIO_SAMPLE_RATE_EXACT / 2.0) // 97352592
-
 namespace newdigate {
 
-class ResamplingSerialFlashReader : public ResamplingReader< IndexableSerialFlashFile<128, 2>, SerialFlashFile > {
+static constexpr size_t BUFFER_SIZE_SERIALFLASH = 128;
+static constexpr size_t BUFFER_COUNT_SERIALFLASH = 2;
+
+class ResamplingSerialFlashReader : public ResamplingReader< IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>, SerialFlashFile > {
 public:
     ResamplingSerialFlashReader(SerialFlashChip &fs) : 
         ResamplingReader(),
@@ -58,8 +57,8 @@ public:
         }
     }
 
-    IndexableSerialFlashFile<128, 2>* createSourceBuffer() override {
-        return new IndexableSerialFlashFile<128, 2>(_myFS, _filename);
+    IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>* createSourceBuffer() override {
+        return new IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>(_myFS, _filename);
     }
 
     uint32_t positionMillis(void) {

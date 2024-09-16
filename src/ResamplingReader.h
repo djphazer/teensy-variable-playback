@@ -9,6 +9,8 @@
 
 namespace newdigate {
 
+static constexpr uint32_t B2M = (uint32_t)((double)4294967296000.0 / AUDIO_SAMPLE_RATE_EXACT / 2.0); // 97352592
+
 template<class TArray, class TFile>
 class ResamplingReader {
 public:
@@ -658,7 +660,6 @@ public:
         _play_start = start;
     }
 
-    #define B2M (uint32_t)((double)4294967296000.0 / AUDIO_SAMPLE_RATE_EXACT / 2.0) // 97352592
     uint32_t positionMillis()
     {
         return ((uint64_t)_file_size * B2M) >> 32;
