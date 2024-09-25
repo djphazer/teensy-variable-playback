@@ -176,6 +176,9 @@ class AudioPlayResmp : public AudioStream
             return reader->getCrossfade();
         }
 
+        int getPosition() {
+            return reader->getPosition();
+        }
         int getBufferPosition1() {
             return reader->getBufferPosition1();
         }

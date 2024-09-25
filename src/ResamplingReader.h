@@ -35,17 +35,19 @@ public:
         if (_play_start == play_start::play_start_sample)
             _bufferPosition1 = _header_offset;
         else
-            _bufferPosition1 = _loop_start;
+            _bufferPosition1 = _header_offset + _loop_start;
         _file_size = 0;
     }
 
+    // length is in samples
     bool playRaw(TArray *array, uint32_t length, uint16_t numChannels)
     {
         _sourceBuffer = array;
         stop();
 
         _header_offset = 0;
-        _file_size = length * 2;
+        _file_samples = length;
+        _file_size = length * 2 * numChannels;
         _loop_start = 0;
         _loop_finish = length;
         setNumChannels(numChannels);
@@ -191,9 +193,9 @@ public:
             }
 
             _header_offset = (44 + dataChunkOffset) / 2;
-            _loop_finish = ((data_header.data_bytes) / 2) + _header_offset;
+            _file_samples = ((data_header.data_bytes) / 2);
         } else
-            _loop_finish = _file_size / 2;
+            _file_samples = _file_size / 2;
 
         file.close();
 
@@ -206,7 +208,8 @@ public:
         }
 
         _sourceBuffer = createSourceBuffer();
-        _loop_start = _header_offset;
+        _loop_start = 0;
+        _loop_finish = _file_samples;
 
         reset();
         _playing = true;
@@ -568,9 +571,9 @@ public:
     }
 
     void loop(uint32_t numSamples) {
-        int bufferPosition = (_crossfade < 1.0)? _bufferPosition1 : _bufferPosition2;
-        _loop_start = bufferPosition;
-        _loop_finish = bufferPosition + numSamples * _numChannels;
+        int bufferPosition = ((_crossfade < 1.0)? _bufferPosition1 : _bufferPosition2) - _header_offset;
+        _loop_start = bufferPosition / _numChannels;
+        _loop_finish = bufferPosition / _numChannels + numSamples;
         _loopType = loop_type::looptype_repeat;
     }
 
@@ -660,16 +663,18 @@ public:
         _play_start = start;
     }
 
-    uint32_t positionMillis()
-    {
-        return ((uint64_t)_file_size * B2M) >> 32;
+    uint32_t positionMillis(void) {
+        if (_file_size == 0) return 0;
+        return (uint32_t) (( (double)getPosition() * lengthMillis() ) / (double)(_file_samples));
     }
-
     uint32_t lengthMillis()
     {
-        return ((uint64_t)_file_size * B2M) >> 32;
+        return ((uint64_t)_file_samples * B2M) >> 32;
     }
 
+    int getPosition() {
+        return (((_crossfade < 0.5)? _bufferPosition1 : _bufferPosition2) - _header_offset) / _numChannels;
+    }
     int getBufferPosition1() {
         return _bufferPosition1;
     }
@@ -710,22 +715,23 @@ public:
 protected:
     volatile bool _playing = false;
 
-    int32_t _file_size;
-    int32_t _header_offset = 0; // == (header size in bytes ) / 2
+    uint32_t _file_size;
+    uint32_t _header_offset = 0; // == (header size in bytes ) / 2
 
     float _tempo_bpm = 0.0;
     double _playbackRate = 1.0;
     double _remainder = 0.0;
     loop_type _loopType = loop_type::looptype_none;
     play_start _play_start = play_start::play_start_sample;
-    int32_t _bufferPosition1 = 0;
-    int32_t _bufferPosition2 = 0;
+    int _bufferPosition1 = 0;
+    int _bufferPosition2 = 0;
     double _crossfade = 0.0;
     bool _useDualPlaybackHead = false;
     unsigned int _crossfadeDurationInSamples = 256; 
     int _crossfadeState = 0;
-    int32_t _loop_start = 0;
-    int32_t _loop_finish = 0;
+    uint32_t _loop_start = 0;
+    uint32_t _loop_finish = 0;
+    uint32_t _file_samples = 0;
     int16_t _numChannels = -1;
     uint16_t _numInterpolationPointsChannels = 0;
     char *_filename = nullptr;
