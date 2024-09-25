@@ -15,6 +15,7 @@
 
 namespace newdigate {
 
+// Settings for serial flash buffering
 static constexpr size_t BUFFER_SIZE_SERIALFLASH = 128;
 static constexpr size_t BUFFER_COUNT_SERIALFLASH = 2;
 
@@ -58,7 +59,12 @@ public:
     }
 
     IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>* createSourceBuffer() override {
-        return new IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>(_myFS, _filename);
+        SerialFlashFile f = open(_filename);
+        return new IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>(_myFS, _filename, f);
+    }
+
+    IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>* createSourceBuffer(SerialFlashFile& file) override {
+        return new IndexableSerialFlashFile<BUFFER_SIZE_SERIALFLASH, BUFFER_COUNT_SERIALFLASH>(_myFS, _filename, file);
     }
 
 protected:    

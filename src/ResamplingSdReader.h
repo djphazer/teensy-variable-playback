@@ -30,7 +30,9 @@ public:
     }
 
     int16_t getSourceBufferValue(long index) override {
-        return (*_sourceBuffer)[index];
+        return (_sourceBuffer == nullptr)
+					?0
+					:(*_sourceBuffer)[index];
     }
 
     int available(void)
@@ -58,7 +60,12 @@ public:
     }
 
     IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>* createSourceBuffer() override {
-        return new IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>(_filename, _sd);
+        File f = open(_filename);
+        return new IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>(_filename, _sd, f);
+    }
+
+    IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>* createSourceBuffer(File& file) override {
+        return new IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>(_filename, _sd, file);
     }
 
 protected:    

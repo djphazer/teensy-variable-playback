@@ -4,10 +4,14 @@
 #include "Arduino.h"
 #include "Audio.h"
 #include "loop_type.h"
+#include "EventResponder.h"
+
+extern void readerClose(void);
 
 template <class TResamplingReader>
-class AudioPlayResmp : public AudioStream
+class AudioPlayResmp : public AudioStream, public EventResponder
 {
+		enum {evReload,evClose};
     public:
         AudioPlayResmp(): AudioStream(0, NULL), reader(nullptr)
         {
@@ -16,9 +20,28 @@ class AudioPlayResmp : public AudioStream
         virtual ~AudioPlayResmp() {
         }
 
+		static void event_response(EventResponderRef evRef)
+		{
+			TResamplingReader* reader = (TResamplingReader*) evRef.getData();
+			int status = evRef.getStatus();
+
+			if (nullptr != reader)
+				switch (status)
+				{
+					case evReload:
+						reader->triggerReload();
+						break;
+
+					case evClose:
+						reader->close();
+						break;
+				}
+		}
+
         void begin(void)
         {
             reader->begin();
+			attach(event_response);
         }
 
         bool playRaw(const char *filename, uint16_t numChannels)
@@ -74,6 +97,10 @@ class AudioPlayResmp : public AudioStream
             reader->setLoopType(t);
         }
 
+        loop_type getLoopType(void) {
+            return reader->getLoopType();
+        }
+
         void setLoopStart(uint32_t loop_start) {
             reader->setLoopStart(loop_start);
         }
@@ -90,8 +117,8 @@ class AudioPlayResmp : public AudioStream
             reader->setCrossfadeDurationInSamples(crossfadeDurationInSamples);
         }
 
-        void setPlayStart(play_start start) {
-            reader->setPlayStart(start);
+        void setPlayStart(play_start start, uint32_t playback_start = 0) {
+            reader->setPlayStart(start, playback_start);
         }
 
         void enableInterpolation(bool enable) {
@@ -103,14 +130,27 @@ class AudioPlayResmp : public AudioStream
 
         bool isPlaying(void) {
             return reader->isPlaying();
-        };
+        }
+
+        bool getBufferInPSRAM(void) {
+            return reader->getBufferInPSRAM();
+        }
+
+        void setBufferInPSRAM(bool flag) {
+            reader->setBufferInPSRAM(flag);
+        }
 
         void stop() {
+			clearEvent();
             reader->stop();
         }
         void reset() {
             reader->reset();
         }
+
+        size_t getBufferSize(void) { return reader->getBufferSize(); }
+        void getStatus(char* buf)  { return reader->getStatus(buf); }
+        void triggerReload()  { return reader->triggerReload(this); }
 
         void update()
         {
@@ -148,8 +188,12 @@ class AudioPlayResmp : public AudioStream
 						transmit(blocks[0], 1);
 					}
 
+					if (AUDIO_BLOCK_SAMPLES == n) // got enough samples...
+						triggerEvent(evReload,reader); // ...load more if needed
+					else
+						triggerEvent(evClose,reader); // ...end of file, finish playing
 				} else {
-					reader->close();
+					triggerEvent(evClose,reader);
 				}
 			}
 			

@@ -9,7 +9,6 @@
 #include "IndexableLittleFSFile.h"
 #include "ResamplingReader.h"
 #include "LittleFS.h"
-#include "ResamplingSdReader.h"
 
 namespace newdigate {
 
@@ -55,7 +54,12 @@ public:
     }
 
     IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>* createSourceBuffer() override {
-        return new IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>(_myFS, _filename);
+        File f = open(_filename);
+        return new IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>(_myFS, _filename, f);
+    }
+
+    IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>* createSourceBuffer(File& file) override {
+        return new IndexableLittleFSFile<BUFFER_SIZE_LFS, BUFFER_COUNT_LFS>(_myFS, _filename, file);
     }
 
 protected:    
