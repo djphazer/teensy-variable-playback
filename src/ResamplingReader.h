@@ -35,17 +35,19 @@ public:
         if (_play_start == play_start::play_start_sample)
             _bufferPosition1 = _header_offset;
         else
-            _bufferPosition1 = _loop_start;
+            _bufferPosition1 = _header_offset + _loop_start;
         _file_size = 0;
     }
 
+    // length is in samples
     bool playRaw(TArray *array, uint32_t length, uint16_t numChannels)
     {
         _sourceBuffer = array;
         stop();
 
         _header_offset = 0;
-        _file_size = length * 2;
+        _file_samples = length;
+        _file_size = length * 2 * numChannels;
         _loop_start = 0;
         _loop_finish = length;
 		_file_samples = length;
@@ -191,7 +193,7 @@ public:
             }
 
             _header_offset = (44 + dataChunkOffset) / 2;
-            _file_samples = ((data_header.data_bytes) / 2) + _header_offset;
+            _file_samples = ((data_header.data_bytes) / 2);
         } else
             _file_samples = _file_size / 2;
 
@@ -204,23 +206,21 @@ public:
             return false;
         }
 
-        _file_samples /= _numChannels; // make sample coount same basis as loop start/finish
+        //_file_samples /= _numChannels;
+        _loop_start = 0;
+        _loop_finish = _file_samples;
 
-		if (looptype_none == _loopType)
-		{
-			_loop_start = 0;
-			_loop_finish = _file_samples;
-		}
-
-		_sourceBuffer = createSourceBuffer(file);
-		setLoopType(_loopType);
-		setLoopStart(/*_samples_to_start*/(_loop_start));
-		setLoopFinish(/*_samples_to_start*/(_loop_finish));
+        _sourceBuffer = createSourceBuffer(file);
+        setLoopType(_loopType);
+        setLoopStart(/*_samples_to_start*/(_loop_start));
+        setLoopFinish(/*_samples_to_start*/(_loop_finish));
         reset(); // sets _bufferPosition1 ready for playback
-		if (_playbackRate >= 0.0f)
-			preLoadBuffers(_bufferPosition1, _bufferInPSRAM);
-		else
-			preLoadBuffers(_bufferPosition1, _bufferInPSRAM, false);
+        /* takes too long
+        if (_playbackRate >= 0.0f)
+          preLoadBuffers(_bufferPosition1, _bufferInPSRAM);
+        else
+          preLoadBuffers(_bufferPosition1, _bufferInPSRAM, false);
+        */
 
         _playing = true;
         return true;
@@ -603,7 +603,7 @@ public:
     }
 
     void loop(uint32_t numSamples) {
-        int bufferPosition = (_crossfade < 1.0)? _bufferPosition1 : _bufferPosition2;
+        int bufferPosition = ((_crossfade < 1.0)? _bufferPosition1 : _bufferPosition2) - _header_offset;
         _loop_start = bufferPosition / _numChannels;
         _loop_finish = bufferPosition / _numChannels + numSamples;
         _loopType = loop_type::looptype_repeat;
@@ -725,14 +725,17 @@ public:
 
     uint32_t positionMillis()
     {
-        return ((uint64_t)_file_size * B2M) >> 32;
+        if (_file_size == 0) return 0;
+        return ((uint64_t)getPosition() * B2M * 2) >> 32;
     }
-
     uint32_t lengthMillis()
     {
-        return ((uint64_t)_file_size * B2M) >> 32;
+        return ((uint64_t)_file_samples * B2M * 2) >> 32;
     }
 
+    int getPosition() {
+        return (((_crossfade < 0.5)? _bufferPosition1 : _bufferPosition2) - _header_offset) / _numChannels;
+    }
     int getBufferPosition1() {
         return _bufferPosition1;
     }
@@ -781,8 +784,8 @@ public:
 protected:
     volatile bool _playing = false;
 
-    int32_t _file_size;
-    int32_t _header_offset = 0; // == (header size in bytes ) / 2
+    uint32_t _file_size;
+    uint32_t _header_offset = 0; // == (header size in bytes ) / 2
 
     float _tempo_bpm = 0.0;
     double _playbackRate = 1.0;
@@ -795,10 +798,10 @@ protected:
     bool _useDualPlaybackHead = false;
     unsigned int _crossfadeDurationInSamples = 256; 
     int _crossfadeState = 0;
-	int32_t _playback_start = 0;
-    int32_t _loop_start = 0;
-    int32_t _loop_finish = 0;
-	int32_t _file_samples = 0;
+    uint32_t _playback_start = 0;
+    uint32_t _loop_start = 0;
+    uint32_t _loop_finish = 0;
+    uint32_t _file_samples = 0;
     int16_t _numChannels = -1;
     char *_filename = nullptr;
     TArray *_sourceBuffer = nullptr;
