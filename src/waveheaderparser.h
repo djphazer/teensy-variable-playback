@@ -33,84 +33,39 @@ struct wav_data_header {
     unsigned int data_bytes = 0;// 40 - 43
 };
 
-class WaveHeaderParser {
-public:
-  uint16_t getBPMfromID3(char* buf, size_t len = 1024) {
-    Serial.println("Looking for Tempo...");
-    uint16_t val = 0;
-    size_t idx = 0;
+// merely a collection of functions
+namespace WaveHeaderParser {
+    static uint16_t getBPMfromID3(char* buf, size_t len = 1024) {
+      Serial.println("Looking for Tempo...");
+      uint16_t val = 0;
+      size_t idx = 0;
 
-    do {
-      if (buf[idx] == 'T') {
-        if (   buf[idx+1] == 'B'
-            && buf[idx+2] == 'P'
-            && buf[idx+3] == 'M')
-        {
-          break;
+      do {
+        if (buf[idx] == 'T') {
+          if (   buf[idx+1] == 'B'
+              && buf[idx+2] == 'P'
+              && buf[idx+3] == 'M')
+          {
+            break;
+          }
         }
-      }
-    } while (++idx < len);
+      } while (++idx < len);
 
-    if (idx < len) {
-      Serial.println("Found TBPM string...\n");
-      idx += 10;
-      for (size_t i = idx; i < idx + 8; ++i) {
-        if (buf[i] >= '0' && buf[i] <= '9') {
-          val *= 10;
-          val += (buf[i] - '0');
+      if (idx < len) {
+        Serial.println("Found TBPM string...\n");
+        idx += 10;
+        for (size_t i = idx; i < idx + 8; ++i) {
+          if (buf[i] >= '0' && buf[i] <= '9') {
+            val *= 10;
+            val += (buf[i] - '0');
+          }
         }
-      }
-      return val;
-    } else
-      return 0;
-  }
-
-    bool readWaveHeader(const char *filename, wav_header &header, wav_data_header &wav_data_header) {
-        File wavFile = SD.open(filename);
-        if (!wavFile) {
-            Serial.printf("Not able to open wave file... %s\n", filename);
-            return false;
-        }
-        bool result = readWaveHeader(filename, header, wavFile);
-        if (result) {
-            wavFile.seek(36);
-            unsigned char buffer[8];
-            size_t bytesRead = wavFile.read(buffer, 8);
-            if (bytesRead != 8) {
-                Serial.printf("Not able to read header... %s\n", filename);
-                result = false;
-            }
-
-            if (result) {
-                unsigned infoTagsSize = 0, chunkSize;
-                while (!readInfoTags(buffer, 0, chunkSize)) {
-                    infoTagsSize += chunkSize;
-                    wavFile.seek(36 + infoTagsSize);
-                    bytesRead = wavFile.read(buffer, 8);
-                    if (bytesRead != 8) {
-                        Serial.printf("Not able to read header... %s\n", filename);
-                        return false;
-                    }
-                }
-
-                result = readDataHeader(buffer, 0, wav_data_header);
-            }
-        }
-        wavFile.close();
-        return result;
+        return val;
+      } else
+        return 0;
     }
 
-    bool readWaveHeader(const char *filename, wav_header &header, File &wavFile) {
-        char buffer[36];
-        int bytesRead = wavFile.read(buffer, 36);
-        if (bytesRead != 36) {
-            Serial.printf("expected 36 bytes (was %d)\n", bytesRead);
-            return false;
-        }
-        return readWaveHeaderFromBuffer(buffer, header);
-    }
-
-    bool readWaveHeaderFromBuffer(const char *buffer, wav_header &header) {
+    static bool readWaveHeaderFromBuffer(const char *buffer, wav_header &header) {
         if (buffer[0] != 'R' || buffer[1] != 'I' || buffer[2] != 'F' || buffer[3] != 'F') {
             Serial.printf("expected RIFF (was %s)\n", buffer);
             return false;
@@ -165,10 +120,21 @@ public:
         return true;
     }
 
-    bool readInfoTags(unsigned char *buffer, size_t offset, unsigned &infoTagsSize) {
+    static bool readWaveHeader(const char *filename, wav_header &header, File &wavFile) {
+        char buffer[36];
+        int bytesRead = wavFile.read(buffer, 36);
+        if (bytesRead != 36) {
+            Serial.printf("expected 36 bytes (was %d)\n", bytesRead);
+            return false;
+        }
+        return readWaveHeaderFromBuffer(buffer, header);
+    }
+
+    /* returns true for 'data' chunk */
+    static bool readChunk(unsigned char *buffer, size_t offset, unsigned &chunkSize) {
         // report chunk size
-        infoTagsSize = static_cast<uint32_t>(buffer[offset+7] << 24 | buffer[offset+6] << 16 | buffer[offset+5] << 8 | buffer[offset+4]);    
-        infoTagsSize += 8;
+        chunkSize = static_cast<uint32_t>(buffer[offset+7] << 24 | buffer[offset+6] << 16 | buffer[offset+5] << 8 | buffer[offset+4]);
+        chunkSize += 8;
 
         //Serial.println("expected 'data'... skipping chunk");
         if (    buffer[offset+0] == 'd' 
@@ -180,7 +146,7 @@ public:
         return false;
     }
 
-    bool readDataHeader(unsigned char *buffer, size_t offset, wav_data_header &data_header) {
+    static bool readDataHeader(unsigned char *buffer, size_t offset, wav_data_header &data_header) {
 
       for (int i=0; i < 4; i++)
             data_header.data_header[i] = buffer[i+offset];
@@ -194,8 +160,7 @@ public:
         data_header.data_bytes = data_bytes;
         return true;
     }
-private:
-};
 
+} // namespace WaveHeaderParser
 
 #endif //TEENSY_RESAMPLING_SDREADER_WAVEHEADERPARSER_H

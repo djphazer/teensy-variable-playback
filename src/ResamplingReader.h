@@ -70,17 +70,16 @@ public:
             wav_header hdr;
             unsigned infoTagsSize;
             wav_data_header wav_data_hdr;           
-            WaveHeaderParser parser;
             
-            if (!parser.readWaveHeaderFromBuffer((char*) array, hdr))
+            if (!WaveHeaderParser::readWaveHeaderFromBuffer((char*) array, hdr))
                 break;
             
             // make unwarranted assumptions about the header format
             // by using a magic number...
-            if (!parser.readInfoTags((unsigned char*) array, 36, infoTagsSize))
+            if (!WaveHeaderParser::readChunk((unsigned char*) array, 36, infoTagsSize))
                 break;
             
-            if (!parser.readDataHeader((unsigned char*) array, 36 + infoTagsSize, wav_data_hdr))
+            if (!WaveHeaderParser::readDataHeader((unsigned char*) array, 36 + infoTagsSize, wav_data_hdr))
                 break;
                         
             result = playRaw((TArray*)((char*) array + (36 + infoTagsSize + sizeof wav_data_hdr)), 
@@ -116,11 +115,10 @@ public:
             wav_header wav_header;
             wav_data_header data_header;
 
-            WaveHeaderParser wavHeaderParser;
             char buffer[36];
-            file.read(buffer, 36);
-            
-            wavHeaderParser.readWaveHeaderFromBuffer((const char *) buffer, wav_header);
+            size_t bytesRead = file.read(buffer, 36);
+
+            WaveHeaderParser::readWaveHeaderFromBuffer((const char *) buffer, wav_header);
             if (wav_header.bit_depth != 16) {
                 Serial.printf("Needs 16 bit audio! Aborting.... (got %d)", wav_header.bit_depth);
                 return false;
@@ -131,7 +129,7 @@ public:
             if (bytesRead != 8) return false;
 
             unsigned dataChunkOffset = 0, chunkSize = 0;
-            while (!wavHeaderParser.readInfoTags((unsigned char *)buffer, 0, chunkSize))
+            while (!WaveHeaderParser::readChunk((unsigned char *)buffer, 0, chunkSize))
             {
                 if (    buffer[0] == 'i'
                      && buffer[1] == 'd'
@@ -142,7 +140,7 @@ public:
                   size_t sz = 512;
                   char id3buf[sz];
                   sz = file.read(id3buf, chunkSize > sz ? sz : chunkSize);
-                  uint16_t tempo = wavHeaderParser.getBPMfromID3(id3buf, sz);
+                  uint16_t tempo = WaveHeaderParser::getBPMfromID3(id3buf, sz);
                   if (tempo) _tempo_bpm = tempo;
                 }
 
@@ -170,7 +168,7 @@ public:
                 size_t sz = 512;
                 char id3buf[sz];
                 sz = file.read(id3buf, chunkSize > sz ? sz : chunkSize);
-                uint16_t tempo = wavHeaderParser.getBPMfromID3(id3buf, sz);
+                uint16_t tempo = WaveHeaderParser::getBPMfromID3(id3buf, sz);
                 if (tempo) _tempo_bpm = tempo;
 
                 break;
@@ -185,7 +183,7 @@ public:
             bytesRead = file.read(buffer, 8);
             if (bytesRead != 8) return false;
 
-            if (!wavHeaderParser.readDataHeader((unsigned char *)buffer, 0, data_header)) {
+            if (!WaveHeaderParser::readDataHeader((unsigned char *)buffer, 0, data_header)) {
                 Serial.println("Not able to read header! Aborting...");
                 return false;
             }
