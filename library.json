@@ -16,6 +16,10 @@
         "docs"
       ]
     },
+    "build": {
+      "includeDir" : "src",
+      "srcDir" : "src"
+    },
     "authors":
     {
       "name": "Nic Newdigate",
