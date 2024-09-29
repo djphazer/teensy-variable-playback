@@ -26,7 +26,6 @@ public:
     virtual int16_t getSourceBufferValue(long index) = 0;
     virtual void close(void) = 0;
     virtual void retrig_process(void) { };
-    int _lastInterpolationPosition[8] = {0};
 
     void begin(void)
     {
@@ -359,7 +358,7 @@ private:
     {
         if (_playbackRate >= 0.0) {
     // read the sample value for given channel and store it at the location pointed to by the pointer 'value'
-            if (_crossfadeState == 0 && _bufferPosition1 >= int32_t(_samples_to_start(_loop_finish - _crossfadeDurationInSamples))) {
+            if (_crossfadeState == 0 && _bufferPosition1 >= (_samples_to_start(_loop_finish - _crossfadeDurationInSamples))) {
                 _bufferPosition2 = _loopType == loop_type::looptype_pingpong
                                             ?_loop_finish
                                             :_loop_start;
@@ -370,7 +369,7 @@ private:
             //*/
         } else {
             // See if playback has reached start of crossfade zone
-            if (_crossfadeState == 0 && _bufferPosition1 <= int32_t(_samples_to_start(_loop_start + _crossfadeDurationInSamples))) {
+            if (_crossfadeState == 0 && _bufferPosition1 <= (_samples_to_start(_loop_start + _crossfadeDurationInSamples))) {
                 _bufferPosition2 = _loopType == loop_type::looptype_pingpong
                                             ?_loop_start
                                             :_loop_finish;
@@ -384,7 +383,7 @@ private:
         {
             if ((_loopType == loop_type::looptype_pingpong) != (_playbackRate > 0.0)) // bufferPosition2 is going forwards from start
             {
-                if (_bufferPosition2 > int32_t(_samples_to_start(_loop_start + _crossfadeDurationInSamples)))
+                if (_bufferPosition2 > (_samples_to_start(_loop_start + _crossfadeDurationInSamples)))
                 {
                     _bufferPosition1 = _bufferPosition2;
                     _crossfadeState = 0; // stop crossfade
@@ -394,7 +393,7 @@ private:
             }
             else // bufferPosition2 is going backwards from finish
             {
-                if (_bufferPosition2 < int32_t(_samples_to_start(_loop_finish - _crossfadeDurationInSamples)))
+                if (_bufferPosition2 < (_samples_to_start(_loop_finish - _crossfadeDurationInSamples)))
                 {
                     _bufferPosition1 = _bufferPosition2;
                     _crossfadeState = 0; // stop crossfade
@@ -422,12 +421,12 @@ private:
                 // forward playback ...
                 if (looptype_none == _loopType) // ...not looping
                 {
-                    if (_bufferPosition1 >=  int32_t(_samples_to_start(_file_samples)) )
+                    if (_bufferPosition1 >=  _samples_to_start(_file_samples) )
                         return false;
                 }
                 else // ... looping
                 {
-                    if (_bufferPosition1 >=  int32_t(_samples_to_start(_loop_finish)) )
+                    if (_bufferPosition1 >=  _samples_to_start(_loop_finish) )
                     return false;
                 }
             } else if (_playbackRate < 0) {
@@ -436,7 +435,7 @@ private:
                     if (_bufferPosition1 < _header_offset)
                         return false;
                 } else {
-                    if (_bufferPosition1 < int32_t(_samples_to_start(_loop_start)) )
+                    if (_bufferPosition1 < _samples_to_start(_loop_start) )
                         return false;
                 }
             }
@@ -672,14 +671,6 @@ public:
             }
         }
 
-        for(int i=0;i<8;i++) {
-            _numInterpolationPoints[i] = 0;
-             if (_playbackRate > 0.0)
-                _lastInterpolationPosition[i] = _bufferPosition1 / _numChannels;
-            else
-                _lastInterpolationPosition[i] = (_bufferPosition1 / _numChannels) + 1;
-        }
-
         _crossfade = 0.0;
         _crossfadeState = 0;
     }
@@ -808,8 +799,8 @@ protected:
     double _remainder = 0.0;
     loop_type _loopType = loop_type::looptype_none;
     play_start _play_start = play_start::play_start_sample;
-    int _bufferPosition1 = 0;
-    int _bufferPosition2 = 0;
+    uint32_t _bufferPosition1 = 0;
+    uint32_t _bufferPosition2 = 0;
     double _crossfade = 0.0;
     bool _useDualPlaybackHead = false;
     unsigned int _crossfadeDurationInSamples = 256;
