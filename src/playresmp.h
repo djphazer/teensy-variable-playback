@@ -151,6 +151,9 @@ class AudioPlayResmp : public AudioStream, public EventResponder
         size_t getBufferSize(void) { return reader->getBufferSize(); }
         void getStatus(char* buf)  { return reader->getStatus(buf); }
         void triggerReload()  { return reader->triggerReload(this); }
+        void retrigger() {
+            reader->retrigger();
+        }
 
         void update()
         {

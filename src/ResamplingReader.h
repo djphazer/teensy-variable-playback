@@ -409,8 +409,35 @@ private:
         }
     }
 
+    void retrig_process(void) {
+        switch (_play_start)
+        {
+            case play_start::play_start_sample: // first audio block in file
+                _bufferPosition1 = _samples_to_start(0);
+                break;
+            case play_start::play_start_loop:   // loop start
+                Serial.printf("Retriggering loop, pos: %u", _loop_start);
+                _bufferPosition1 = _samples_to_start(_loop_start);
+                break;
+            case play_start::play_start_arbitrary: // user-defined position
+                _bufferPosition1 = _samples_to_start(_playback_start);
+                break;
+        }
+        if (nullptr != _sourceBuffer) {
+            if (_playbackRate >= 0.0f)
+                _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM);
+            else
+                _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, false);
+        }
+    }
+
     // read the sample value for given channel and store it at the location pointed to by the pointer 'value'
     bool readNextValue(int16_t *value, uint16_t channel) {
+        if (_retrig) {
+            retrig_process();
+            _retrig = false;
+        }
+
         if (!_useDualPlaybackHead) {
             if (_playbackRate >= 0 ) {
                 // forward playback ...
@@ -622,6 +649,9 @@ public:
         return _playing;
     }
 
+    void retrigger(void) {
+        _retrig = true;
+    }
     void reset(void) {
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
             initializeInterpolationPoints();
@@ -789,6 +819,7 @@ public:
 
 protected:
     volatile bool _playing = false;
+    volatile bool _retrig = false;
 
     uint32_t _file_size;
     uint32_t _header_offset = 0; // == (header size in bytes ) / 2
