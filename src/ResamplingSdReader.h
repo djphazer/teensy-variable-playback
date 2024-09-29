@@ -15,8 +15,8 @@
 
 namespace newdigate {
 
-static constexpr size_t BUFFER_SIZE_SD = 128;
-static constexpr size_t BUFFER_COUNT_SD = 4;
+static constexpr size_t BUFFER_SIZE_SD = 2048;
+static constexpr size_t BUFFER_COUNT_SD = 7;
 
 class ResamplingSdReader : public ResamplingReader< IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>, File > {
 public:
