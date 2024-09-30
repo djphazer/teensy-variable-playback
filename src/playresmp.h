@@ -11,7 +11,7 @@ extern void readerClose(void);
 template <class TResamplingReader>
 class AudioPlayResmp : public AudioStream, public EventResponder
 {
-		enum {evReload,evClose};
+    enum {evReload,evPause,evClose};
     public:
         AudioPlayResmp(): AudioStream(0, NULL), reader(nullptr)
         {
@@ -20,23 +20,28 @@ class AudioPlayResmp : public AudioStream, public EventResponder
         virtual ~AudioPlayResmp() {
         }
 
-		static void event_response(EventResponderRef evRef)
-		{
-			TResamplingReader* reader = (TResamplingReader*) evRef.getData();
-			int status = evRef.getStatus();
+        static void event_response(EventResponderRef evRef)
+        {
+            TResamplingReader* reader = (TResamplingReader*) evRef.getData();
+            int status = evRef.getStatus();
 
-			if (nullptr != reader)
-				switch (status)
-				{
-					case evReload:
-						reader->triggerReload();
-						break;
+            if (nullptr != reader)
+                switch (status)
+                {
+                    case evReload:
+                        reader->triggerReload();
+                        break;
 
-					case evClose:
-						reader->close();
-						break;
-				}
-		}
+                    case evPause:
+                        reader->stop();
+                        reader->reset();
+                        break;
+
+                    case evClose:
+                        reader->close();
+                        break;
+                }
+        }
 
         void begin(void)
         {
@@ -140,9 +145,17 @@ class AudioPlayResmp : public AudioStream, public EventResponder
             reader->setBufferInPSRAM(flag);
         }
 
+        bool available() { return reader->available(); }
+        void play() {
+            if (reader->available())
+                reader->play();
+        }
         void stop() {
-			clearEvent();
+            clearEvent();
             reader->stop();
+        }
+        void pause(void) {
+            triggerEvent(evPause, reader);
         }
         void reset() {
             reader->reset();
@@ -194,7 +207,7 @@ class AudioPlayResmp : public AudioStream, public EventResponder
 					if (AUDIO_BLOCK_SAMPLES == n) // got enough samples...
 						triggerEvent(evReload,reader); // ...load more if needed
 					else
-						triggerEvent(evClose,reader); // ...end of file, finish playing
+						triggerEvent(evPause,reader); // ...end of file, finish playing
 				} else {
 					triggerEvent(evClose,reader);
 				}

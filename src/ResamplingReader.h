@@ -15,6 +15,12 @@ static constexpr uint32_t B2M = (uint32_t)((double)4294967296000.0 / AUDIO_SAMPL
 template<class TArray, class TFile>
 class ResamplingReader {
 public:
+    enum PlayState {
+        STOPPED = 0,
+        PLAYING = 1,
+        PAUSED, // loaded and parsed, but not playing
+    };
+
     ResamplingReader() {
     }
     virtual ~ResamplingReader() {
@@ -32,13 +38,14 @@ public:
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
             initializeInterpolationPoints();
         }
-        _playing = false;
+        _play_state = STOPPED;
         _crossfade = 0.0;
         if (_play_start == play_start::play_start_sample)
             _bufferPosition1 = _header_offset;
         else
             _bufferPosition1 = _header_offset + _loop_start;
         _file_size = 0;
+        _file_samples = 0;
     }
 
     // length is in samples
@@ -55,7 +62,7 @@ public:
         setNumChannels(numChannels);
 
         reset();
-        _playing = true;
+        _play_state = PLAYING;
         return true;
     }
 
@@ -95,8 +102,10 @@ public:
         return result;
     }
 
-    bool play(const char *filename, bool isWave, uint16_t numChannelsIfRaw = 0)
+    bool play(const char *filename, bool isWave, uint16_t numChannelsIfRaw = 0, bool startPaused = true)
     {
+        _play_state = STOPPED;
+        _file_samples = 0;
         close();
 
         if (!isWave) // if raw file, then hardcode the numChannels as per the parameter
@@ -201,7 +210,7 @@ public:
 
         if (_file_size <= _header_offset * sizeof(int16_t)) {
             file.close();
-            _playing = false;
+            _play_state = STOPPED;
             if (_filename) delete [] _filename;
             _filename =  nullptr;
             Serial.printf("Wave file contains no samples: %s\n", filename);
@@ -221,12 +230,8 @@ public:
         _sourceBuffer->setLoopStart(_samples_to_start(_loop_start));
         _sourceBuffer->setLoopFinish(_samples_to_start(_loop_finish));
         reset(); // sets _bufferPosition1 ready for playback
-        if (_playbackRate >= 0.0f)
-          _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM);
-        else
-          _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, false);
 
-        _playing = true;
+        _play_state = startPaused ? PAUSED : PLAYING;
         return true;
     }
 
@@ -245,23 +250,28 @@ public:
 
     bool play()
     {
-        stop();
-        reset();
-        _playing = true;
-        return true;
-    }
+        if (isPlaying()) {
+            stop();
+            reset();
+        }
 
+        if (available()) {
+            _play_state = PLAYING;
+            return true;
+        }
+        return false;
+    }
     void stop(void)
     {
-        if (_playing) {
-            _playing = false;
+        if (PLAYING == _play_state) {
+            _play_state = STOPPED;
         }
     }
 
-    bool isPlaying(void) { return _playing; }
+    bool isPlaying(void) { return PLAYING == _play_state; }
 
     unsigned int read(void **buf, uint16_t nsamples) {
-        if (!_playing) return 0;
+        if (PLAYING != _play_state) return 0;
 
         int16_t *index[_numChannels];
         unsigned int count = 0;
@@ -287,10 +297,10 @@ public:
 
                     if (readOK)
                     {
-                    if (channel == _numChannels - 1)
-                        count++;
-                    index[channel]++;
-                }
+                        if (channel == _numChannels - 1)
+                            count++;
+                        index[channel]++;
+                    }
                     else
                     {
                         // we have reached the end of the file: this is true for all channels
@@ -299,42 +309,42 @@ public:
                         _crossfadeState = 0;
                         switch (_loopType)
                         {
-                        case looptype_repeat:
-                        {
-                            if (_playbackRate >= 0.0)
-                                    _bufferPosition1 = _samples_to_start(_loop_start);
-                            else
-                                    _bufferPosition1 = _samples_to_start(_loop_finish - _numChannels);
-                            break;
-                        }
-
-                        case looptype_pingpong:
-                        {
-                            if (_playbackRate >= 0.0) {
-                                    _bufferPosition1 = _samples_to_start(_loop_finish - _numChannels);
-                            }
-                            else {
-                                if (_play_start == play_start::play_start_sample)
-                                    _bufferPosition1 = _header_offset;
-                                else
+                            case looptype_repeat:
+                            {
+                                if (_playbackRate >= 0.0)
                                         _bufferPosition1 = _samples_to_start(_loop_start);
+                                else
+                                        _bufferPosition1 = _samples_to_start(_loop_finish - _numChannels);
+                                break;
                             }
-                            _playbackRate = -_playbackRate;
-                            break;
-                        }
 
-                        case looptype_none:
-                        default:
-                        {
-                            //Serial.printf("end of loop...\n");
-                            /* no looping - return the number of (resampled) bytes returned... */
-                                // close(); // can't close(), called from update interrupt!
-                            return count;
+                            case looptype_pingpong:
+                            {
+                                if (_playbackRate >= 0.0) {
+                                        _bufferPosition1 = _samples_to_start(_loop_finish - _numChannels);
+                                }
+                                else {
+                                    if (_play_start == play_start::play_start_sample)
+                                        _bufferPosition1 = _header_offset;
+                                    else
+                                            _bufferPosition1 = _samples_to_start(_loop_start);
+                                }
+                                _playbackRate = -_playbackRate;
+                                break;
+                            }
+
+                            case looptype_none:
+                            default:
+                            {
+                                //Serial.printf("end of loop...\n");
+                                /* no looping - return the number of (resampled) bytes returned... */
+                                    // close(); // can't close(), called from update interrupt!
+                                return count;
+                            }
                         }
                     }
                 }
             }
-        }
 
             // All channels done: step buffer positions on
             _remainder += _playbackRate;
@@ -623,12 +633,16 @@ public:
         return _loopType;
     }
 
-    int available(void) {
-        return _playing;
+    bool available(void) {
+        return (_play_state != STOPPED && _file_samples > 0);
     }
 
     void retrigger(void) {
         _retrig = true;
+        _play_state = PLAYING;
+    }
+    void reload(void) {
+        _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
     }
     void reset(void) {
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
@@ -654,7 +668,7 @@ public:
                     break;
             }
         }
-            else
+        else
         {
             // reverse playback - forward _file_offset to last audio block in file
             switch (_play_start)
@@ -671,8 +685,11 @@ public:
             }
         }
 
+        reload();
+
         _crossfade = 0.0;
         _crossfadeState = 0;
+        _play_state = PAUSED;
     }
 
     // This only works once we know how many channels we have,
@@ -732,7 +749,7 @@ public:
 
     uint32_t positionMillis(void) {
         if (_file_size == 0) return 0;
-        return (uint32_t) (( (double)getPosition() * lengthMillis() ) / (double)(_file_samples));
+        return ((uint64_t)getPosition() * B2M) >> 32;
     }
     uint32_t lengthMillis()
     {
@@ -788,7 +805,7 @@ public:
     }
 
 protected:
-    volatile bool _playing = false;
+    volatile PlayState _play_state = STOPPED;
     volatile bool _retrig = false;
 
     uint32_t _file_size;
@@ -862,6 +879,8 @@ template<>
 void ResamplingReader<short int,File>::getStatus(char* buf) { strcpy(buf,"int[]"); }
 template<>
 void ResamplingReader<short int,File>::triggerReload(void) {}
+template<>
+void ResamplingReader<short int,File>::reload(void) {}
 
 }
 

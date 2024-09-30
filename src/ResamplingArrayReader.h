@@ -23,18 +23,12 @@ public:
         return _sourceBuffer[index];
     }
 
-    int available(void) {
-        return _playing;
-    }
-
     int16_t* createSourceBuffer() override {
         return _sourceBuffer;
     }
 
     void close(void) override {
-        if (_playing) {
-            stop();
-        }
+        stop();
     }
 
     File open(char *filename) override {

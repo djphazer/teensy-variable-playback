@@ -29,19 +29,14 @@ public:
         return (*_sourceBuffer)[index];
     }
 
-    int available(void)
-    {
-        return _playing;
-    }
-
     File open(char *filename) override {
         return _myFS.open(filename);
     }
 
     void close(void) override
     {
-        if (_playing)
-            stop();
+        stop();
+        _file_samples = 0;
         if (_sourceBuffer != nullptr) {
             _sourceBuffer->close();
             delete _sourceBuffer;
