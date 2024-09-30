@@ -14,6 +14,12 @@ static constexpr uint32_t B2M = (uint32_t)((double)4294967296000.0 / AUDIO_SAMPL
 template<class TArray, class TFile>
 class ResamplingReader {
 public:
+    enum PlayState {
+        STOPPED = 0,
+        PLAYING = 1,
+        PAUSED, // loaded and parsed, but not playing
+    };
+
     ResamplingReader() {
     }
     virtual ~ResamplingReader() {       
@@ -31,13 +37,14 @@ public:
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
             initializeInterpolationPoints();
         }
-        _playing = false;
+        _play_state = STOPPED;
         _crossfade = 0.0;
         if (_play_start == play_start::play_start_sample)
             _bufferPosition1 = _header_offset;
         else
             _bufferPosition1 = _header_offset + _loop_start;
         _file_size = 0;
+        _file_samples = 0;
     }
 
     // length is in samples
@@ -55,7 +62,7 @@ public:
         setNumChannels(numChannels);
 
         reset();
-        _playing = true;
+        _play_state = PLAYING;
         return true;
     }
 
@@ -95,8 +102,10 @@ public:
         return result;
     }
 
-    bool play(const char *filename, bool isWave, uint16_t numChannelsIfRaw = 0)
+    bool play(const char *filename, bool isWave, uint16_t numChannelsIfRaw = 0, bool startPaused = true)
     {
+        _play_state = STOPPED;
+        _file_samples = 0;
         close();
 
         if (!isWave) // if raw file, then hardcode the numChannels as per the parameter
@@ -200,7 +209,7 @@ public:
 
         if (_file_size <= _header_offset * sizeof(int16_t)) {
             file.close();
-            _playing = false;
+            _play_state = STOPPED;
             if (_filename) delete [] _filename;
             _filename =  nullptr;
             Serial.printf("Wave file contains no samples: %s\n", filename);
@@ -216,14 +225,8 @@ public:
         setLoopStart(/*_samples_to_start*/(_loop_start));
         setLoopFinish(/*_samples_to_start*/(_loop_finish));
         reset(); // sets _bufferPosition1 ready for playback
-        /* takes too long
-        if (_playbackRate >= 0.0f)
-          preLoadBuffers(_bufferPosition1, _bufferInPSRAM);
-        else
-          preLoadBuffers(_bufferPosition1, _bufferInPSRAM, false);
-        */
 
-        _playing = true;
+        _play_state = startPaused ? PAUSED : PLAYING;
         return true;
     }
 	
@@ -247,24 +250,29 @@ public:
 
     bool play()
     {
-        stop();
-        reset();
-        _playing = true;
-        return true;
-    }
+        if (isPlaying()) {
+            stop();
+            reset();
+        }
 
+        if (available()) {
+            _play_state = PLAYING;
+            return true;
+        }
+        return false;
+    }
     void stop(void)
     {
-        if (_playing) {   
-            _playing = false;
+        if (PLAYING == _play_state) {
+            _play_state = STOPPED;
         }
     }           
 
-    bool isPlaying(void) { return _playing; }
+    bool isPlaying(void) { return PLAYING == _play_state; }
 
     unsigned int read(void **buf, uint16_t nsamples) {
-        if (!_playing) return 0;
-		
+        if (PLAYING != _play_state) return 0;
+
         int16_t *index[_numChannels];
         unsigned int count = 0;
 
@@ -626,39 +634,43 @@ public:
         return _loopType;    
     }
 
-    int available(void) {
-        return _playing;
+    bool available(void) {
+        return (_play_state != STOPPED && _file_samples > 0);
     }
 
     void retrigger(void) {
         _retrig = true;
+        _play_state = PLAYING;
+    }
+    void reload(void) {
+        _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
     }
     void reset(void) {
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
             initializeInterpolationPoints();
         }
-		
-		for (size_t i=0;i<MAX_CHANNELS;i++)
-			_numInterpolationPoints[i] = 0;
-		
-        if (_playbackRate >= 0.0) 
-		{
-            // forward playback - set _file_offset to 
-			switch (_play_start)
-			{
-				case play_start::play_start_sample: // first audio block in file
-					_bufferPosition1 = _samples_to_start(0);
-					break;
-				case play_start::play_start_loop: 	// loop start
-					_bufferPosition1 = _samples_to_start(_loop_start);
-					break;					
-				case play_start::play_start_arbitrary: // user-defined position
-					_bufferPosition1 = _samples_to_start(_playback_start);
-					break;
-			}		
-        } 
-		else 
-		{
+
+        for (size_t i=0;i<MAX_CHANNELS;i++)
+            _numInterpolationPoints[i] = 0;
+
+        if (_playbackRate >= 0.0)
+        {
+            // forward playback - set _file_offset to
+            switch (_play_start)
+            {
+                case play_start::play_start_sample: // first audio block in file
+                    _bufferPosition1 = _samples_to_start(0);
+                    break;
+                case play_start::play_start_loop:   // loop start
+                    _bufferPosition1 = _samples_to_start(_loop_start);
+                    break;
+                case play_start::play_start_arbitrary: // user-defined position
+                    _bufferPosition1 = _samples_to_start(_playback_start);
+                    break;
+            }
+        }
+        else
+        {
             // reverse playback - forward _file_offset to last audio block in file
 			switch (_play_start)
 			{
@@ -673,10 +685,14 @@ public:
 					break;
 			}
         }
+
+        reload();
+
         _crossfade = 0.0;
-		_crossfadeState = 0;
+        _crossfadeState = 0;
+        _play_state = PAUSED;
     }
-	
+
 	// This only works once we know how many channels we have, 
 	// i.e. NOT before playback has been triggered and we have a file
 	uint32_t _samples_to_start(uint32_t samples)
@@ -791,7 +807,7 @@ public:
     }
 
 protected:
-    volatile bool _playing = false;
+    volatile PlayState _play_state = STOPPED;
     volatile bool _retrig = false;
 
     uint32_t _file_size;
@@ -863,6 +879,8 @@ template<>
 inline void ResamplingReader<short int,File>::getStatus(char* buf) { strcpy(buf,"int[]"); }
 template<>
 inline void ResamplingReader<short int,File>::triggerReload(void) {}
+template<>
+inline void ResamplingReader<short int,File>::reload(void) {}
 template<>
 inline void ResamplingReader<short int,File>::setLoopType(loop_type loopType) { _loopType = loopType; }
 template<>

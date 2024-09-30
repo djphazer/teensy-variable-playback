@@ -11,7 +11,7 @@ extern void readerClose(void);
 template <class TResamplingReader>
 class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 {
-		enum {evNothing,evReload,evClose};
+    enum {evNothing,evReload,evPause,evClose};
     public:
         AudioPlayResmp(): AudioStream(0, NULL), reader(nullptr)
         {
@@ -34,6 +34,11 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 						reader->triggerReload();
 						break;
 						
+                    case evPause:
+                        reader->stop();
+                        reader->reset();
+                        break;
+
 					case evClose:
 						reader->close();
 						break;
@@ -158,16 +163,20 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
             reader->setBufferInPSRAM(flag);
         }
 
+        bool available() { return reader->available(); }
+        void play() {
+            if (reader->available())
+                reader->play();
+        }
         void stop() {
 			disableResponse();
 			clearEvent();
             reader->stop();
 			enableResponse();
         }
-		
-		size_t getBufferSize(void) { return reader->getBufferSize(); }
-		void getStatus(char* buf)  { return reader->getStatus(buf); }
-		void triggerReload()  { return reader->triggerReload(this); }
+        void pause(void) {
+            triggerEvent(evPause, reader);
+        }
         void reset() {
             reader->reset();
         }
@@ -218,7 +227,7 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 					if (AUDIO_BLOCK_SAMPLES == n) // got enough samples...
 						triggerEvent(evReload,this); // ...load more if needed
 					else
-						triggerEvent(evClose,this); // ...end of file, finish playing
+						triggerEvent(evPause,this); // ...end of file, finish playing
 				} else {
 					triggerEvent(evClose,this);
 				}
