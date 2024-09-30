@@ -450,8 +450,8 @@ public:
     }
 	
 	void setLoopType(loop_type l) { _loop_type = l; }
-	void setLoopStart(int32_t l) { _loop_start_blocks = l >> buffer_to_index_shift; }
-	void setLoopFinish(int32_t l) { _loop_finish_blocks = l >> buffer_to_index_shift; }
+    void setLoopStart(uint32_t l) { _loop_start_blocks = l >> buffer_to_index_shift; }
+    void setLoopFinish(uint32_t l) { _loop_finish_blocks = l >> buffer_to_index_shift; }
 
 protected:
     TFile _file;
@@ -460,8 +460,8 @@ protected:
 	// we need a copy of the loop parameters in
 	// order to pre-load the buffers correctly
     loop_type _loop_type = loop_type::looptype_none;
-    int32_t _loop_start_blocks = 0;
-    int32_t _loop_finish_blocks = 0;    
+    uint32_t _loop_start_blocks = 0;
+    uint32_t _loop_finish_blocks = 0;
 	
 	bool _bufInPSRAM = false;
 	
