@@ -642,8 +642,8 @@ public:
         _retrig = true;
         _play_state = PLAYING;
     }
-    void reload(void) {
-        _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
+    bool reload(void) {
+        return _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
     }
     void reset(void) {
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
@@ -686,11 +686,11 @@ public:
 			}
         }
 
-        reload();
+        if (reload())
+            _play_state = PAUSED;
 
         _crossfade = 0.0;
         _crossfadeState = 0;
-        _play_state = PAUSED;
     }
 
 	// This only works once we know how many channels we have, 
@@ -880,7 +880,7 @@ inline void ResamplingReader<short int,File>::getStatus(char* buf) { strcpy(buf,
 template<>
 inline void ResamplingReader<short int,File>::triggerReload(void) {}
 template<>
-inline void ResamplingReader<short int,File>::reload(void) {}
+inline bool ResamplingReader<short int,File>::reload(void) { return true; }
 template<>
 inline void ResamplingReader<short int,File>::setLoopType(loop_type loopType) { _loopType = loopType; }
 template<>
