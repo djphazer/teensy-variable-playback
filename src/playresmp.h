@@ -11,7 +11,7 @@ extern void readerClose(void);
 template <class TResamplingReader>
 class AudioPlayResmp : public AudioStream, public EventResponder
 {
-    enum {evReload,evPause,evClose};
+    enum {evReload,evPause,evPlay,evClose};
     public:
         AudioPlayResmp(): AudioStream(0, NULL), reader(nullptr)
         {
@@ -35,6 +35,12 @@ class AudioPlayResmp : public AudioStream, public EventResponder
                     case evPause:
                         reader->stop();
                         reader->reset();
+                        break;
+
+                    case evPlay:
+                        reader->reset();
+                        if (reader->available())
+                            reader->play();
                         break;
 
                     case evClose:
@@ -149,6 +155,8 @@ class AudioPlayResmp : public AudioStream, public EventResponder
         void play() {
             if (reader->available())
                 reader->play();
+            else
+                triggerEvent(evPlay, reader);
         }
         void stop() {
             clearEvent();

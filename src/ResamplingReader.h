@@ -312,22 +312,22 @@ public:
                             case looptype_repeat:
                             {
                                 if (_playbackRate >= 0.0)
-                                        _bufferPosition1 = _samples_to_start(_loop_start);
+                                    _bufferPosition1 = _samples_to_start(_loop_start);
                                 else
-                                        _bufferPosition1 = _samples_to_start(_loop_finish - _numChannels);
+                                    _bufferPosition1 = _samples_to_start(_loop_finish - _numChannels);
                                 break;
                             }
 
                             case looptype_pingpong:
                             {
                                 if (_playbackRate >= 0.0) {
-                                        _bufferPosition1 = _samples_to_start(_loop_finish - _numChannels);
+                                    _bufferPosition1 = _samples_to_start(_loop_finish - _numChannels);
                                 }
                                 else {
                                     if (_play_start == play_start::play_start_sample)
                                         _bufferPosition1 = _header_offset;
                                     else
-                                            _bufferPosition1 = _samples_to_start(_loop_start);
+                                        _bufferPosition1 = _samples_to_start(_loop_start);
                                 }
                                 _playbackRate = -_playbackRate;
                                 break;
@@ -437,7 +437,7 @@ private:
                 else // ... looping
                 {
                     if (_bufferPosition1 >=  _samples_to_start(_loop_finish) )
-                    return false;
+                        return false;
                 }
             } else if (_playbackRate < 0) {
                 // reverse playback
@@ -641,8 +641,8 @@ public:
         _retrig = true;
         _play_state = PLAYING;
     }
-    void reload(void) {
-        _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
+    bool reload(void) {
+        return _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
     }
     void reset(void) {
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
@@ -685,11 +685,11 @@ public:
             }
         }
 
-        reload();
+        if (reload())
+            _play_state = PAUSED;
 
         _crossfade = 0.0;
         _crossfadeState = 0;
-        _play_state = PAUSED;
     }
 
     // This only works once we know how many channels we have,
@@ -880,7 +880,7 @@ void ResamplingReader<short int,File>::getStatus(char* buf) { strcpy(buf,"int[]"
 template<>
 void ResamplingReader<short int,File>::triggerReload(void) {}
 template<>
-void ResamplingReader<short int,File>::reload(void) {}
+bool ResamplingReader<short int,File>::reload(void) { return true; }
 
 }
 

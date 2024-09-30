@@ -69,10 +69,7 @@ public:
                 break;
         }
         if (nullptr != _sourceBuffer) {
-            if (_playbackRate >= 0.0f)
-                _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM);
-            else
-                _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, false);
+            _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
         }
     }
 
