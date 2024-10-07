@@ -749,11 +749,11 @@ public:
 
     uint32_t positionMillis(void) {
         if (_file_size == 0) return 0;
-        return ((uint64_t)getPosition() * B2M) >> 32;
+        return ((uint64_t)getPosition() * B2M * 2) >> 32;
     }
     uint32_t lengthMillis()
     {
-        return ((uint64_t)_file_samples * B2M) >> 32;
+        return ((uint64_t)_file_samples * B2M * 2) >> 32;
     }
 
     int getPosition() {
