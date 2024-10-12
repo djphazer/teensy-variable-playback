@@ -104,8 +104,6 @@ public:
 
     bool play(const char *filename, bool isWave, uint16_t numChannelsIfRaw = 0, bool startPaused = true)
     {
-        _play_state = STOPPED;
-        _file_samples = 0;
         close();
 
         if (!isWave) // if raw file, then hardcode the numChannels as per the parameter
@@ -131,6 +129,10 @@ public:
 
             char buffer[36];
             size_t bytesRead = file.read(buffer, 36);
+            if (bytesRead < 36) {
+                close();
+                return false;
+            }
 
             WaveHeaderParser::readWaveHeaderFromBuffer((const char *) buffer, wav_header);
             if (wav_header.bit_depth != 16) {
@@ -263,9 +265,7 @@ public:
     }
     void stop(void)
     {
-        if (PLAYING == _play_state) {
-            _play_state = STOPPED;
-        }
+        _play_state = STOPPED;
     }
 
     bool isPlaying(void) { return PLAYING == _play_state; }
@@ -645,6 +645,8 @@ public:
         return _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
     }
     void reset(void) {
+        if (_file_samples == 0) return;
+
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
             initializeInterpolationPoints();
         }
