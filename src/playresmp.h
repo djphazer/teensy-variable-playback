@@ -121,6 +121,10 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
         float getBPM() {
             return reader->getBPM();
         }
+        void syncTrig() {
+            // used to nudge the grid to align with a pulse
+            reader->syncTrig();
+        }
 
         void setLoopType(loop_type t) {
             reader->setLoopType(t);

@@ -804,8 +804,32 @@ public:
     }
 
     void matchTempo(float target) {
-      if (_tempo_bpm > 0.0)
+      if (_tempo_bpm > 0.0 && millis() > stall_time)
         setPlaybackRate(target / _tempo_bpm);
+    }
+    void syncTrig() {
+      if (isPlaying() && _tempo_bpm > 0.0) {
+        const size_t samples_per_beat = AUDIO_SAMPLE_RATE_EXACT * 60 / _tempo_bpm;
+        const size_t pos = getPosition() - getLoopStart();
+        int diff = pos % samples_per_beat;
+
+        if (diff > samples_per_beat/2) {
+            // closest beat is the next one
+            diff -= samples_per_beat; // this should be negative
+        }
+
+        // don't act on sufficiently small drift... 200 samples == 4.5ms
+        if (abs(diff) < 200) return;
+
+        if (diff < 0) {
+            // jump forward
+            _bufferPosition1 -= (diff * 2 * _numChannels);
+        } else {
+            // closest beat is the previous one - we need to stall
+            stall_time = millis() + uint32_t(diff * 1000 / (_playbackRate * AUDIO_SAMPLE_RATE_EXACT));
+            setPlaybackRate(0.0);
+        }
+      }
     }
 
 protected:
@@ -815,6 +839,7 @@ protected:
     uint32_t _file_size;
     uint32_t _header_offset = 0; // == (header size in bytes ) / 2
 
+    uint32_t stall_time = 0;
     float _tempo_bpm = 0.0;
     double _playbackRate = 1.0;
     double _remainder = 0.0;
