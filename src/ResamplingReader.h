@@ -805,6 +805,27 @@ public:
       if (_tempo_bpm > 0.0)
         setPlaybackRate(target / _tempo_bpm);
     }
+    void syncTrig() {
+      if (isPlaying() && _tempo_bpm > 0.0) {
+        const size_t samples_per_beat = AUDIO_SAMPLE_RATE_EXACT * 60 / _tempo_bpm;
+        const size_t pos = getPosition() - getLoopStart();
+        int diff = pos % samples_per_beat;
+
+        if (diff > samples_per_beat/2) {
+            // closest beat is the next one
+            diff -= samples_per_beat; // this should be negative
+            // correct for half of the difference... keep it fuzzy
+            _bufferPosition1 -= (diff * 2 * _numChannels) / 2;
+        } else {
+            // closest beat is the previous one - we need to stall
+            setPlaybackRate(0.0);
+            // This assumes that matchTempo() will be called again at some point to resume playing.
+            // In my implementation, this happens every 60ms,
+            // allowing it to stall for 60ms at a time to nudge backward.
+            // -NJM
+        }
+      }
+    }
 
 protected:
     volatile PlayState _play_state = STOPPED;
