@@ -802,7 +802,7 @@ public:
     }
 
     void matchTempo(float target) {
-      if (_tempo_bpm > 0.0)
+      if (_tempo_bpm > 0.0 && millis() > stall_time)
         setPlaybackRate(target / _tempo_bpm);
     }
     void syncTrig() {
@@ -814,15 +814,18 @@ public:
         if (diff > samples_per_beat/2) {
             // closest beat is the next one
             diff -= samples_per_beat; // this should be negative
-            // correct for half of the difference... keep it fuzzy
+        }
+
+        // don't act on sufficiently small drift... 200 samples == 4.5ms
+        if (abs(diff) < 200) return;
+
+        if (diff < 0) {
+            // correct for half of the difference... to keep it fuzzy ;)
             _bufferPosition1 -= (diff * 2 * _numChannels) / 2;
         } else {
             // closest beat is the previous one - we need to stall
             setPlaybackRate(0.0);
-            // This assumes that matchTempo() will be called again at some point to resume playing.
-            // In my implementation, this happens every 60ms,
-            // allowing it to stall for 60ms at a time to nudge backward.
-            // -NJM
+            stall_time = millis() + (diff * 1000 / AUDIO_SAMPLE_RATE_EXACT);
         }
       }
     }
@@ -834,6 +837,7 @@ protected:
     uint32_t _file_size;
     uint32_t _header_offset = 0; // == (header size in bytes ) / 2
 
+    uint32_t stall_time = 0;
     float _tempo_bpm = 0.0;
     double _playbackRate = 1.0;
     double _remainder = 0.0;
