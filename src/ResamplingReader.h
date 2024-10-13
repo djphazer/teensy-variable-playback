@@ -820,8 +820,8 @@ public:
         if (abs(diff) < 200) return;
 
         if (diff < 0) {
-            // correct for half of the difference... to keep it fuzzy ;)
-            _bufferPosition1 -= (diff * 2 * _numChannels) / 2;
+            // jump forward
+            _bufferPosition1 -= (diff * 2 * _numChannels);
         } else {
             // closest beat is the previous one - we need to stall
             setPlaybackRate(0.0);
