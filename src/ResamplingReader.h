@@ -824,8 +824,8 @@ public:
             _bufferPosition1 -= (diff * 2 * _numChannels);
         } else {
             // closest beat is the previous one - we need to stall
+            stall_time = millis() + uint32_t(diff * 1000 / (_playbackRate * AUDIO_SAMPLE_RATE_EXACT));
             setPlaybackRate(0.0);
-            stall_time = millis() + (diff * 1000 / AUDIO_SAMPLE_RATE_EXACT);
         }
       }
     }
