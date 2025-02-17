@@ -24,6 +24,7 @@ public:
     virtual TArray* createSourceBuffer(TFile& file) {return nullptr;};
     virtual int16_t getSourceBufferValue(long index) = 0;
     virtual void close(void) = 0;
+    virtual void retrig_process(void) { };
 
     void begin(void) 
     {
@@ -412,6 +413,11 @@ private:
 
     // read the sample value for given channel and store it at the location pointed to by the pointer 'value'
     bool readNextValue(int16_t *value, uint16_t channel) {
+        if (_retrig) {
+            retrig_process();
+            _retrig = false;
+        }
+
         if (!_useDualPlaybackHead) {
             if (_playbackRate >= 0 ) {
                 // forward playback ...
@@ -624,6 +630,9 @@ public:
         return _playing;
     }
 
+    void retrigger(void) {
+        _retrig = true;
+    }
     void reset(void) {
         if (_interpolationType != ResampleInterpolationType::resampleinterpolation_none) {
             initializeInterpolationPoints();
@@ -783,6 +792,7 @@ public:
 
 protected:
     volatile bool _playing = false;
+    volatile bool _retrig = false;
 
     uint32_t _file_size;
     uint32_t _header_offset = 0; // == (header size in bytes ) / 2
