@@ -760,7 +760,7 @@ public:
         return ((uint64_t)_file_samples * B2M * 2) >> 32;
     }
 
-    int getPosition() {
+    uint32_t getPosition() {
         return (((_crossfade < 0.5)? _bufferPosition1 : _bufferPosition2) - _header_offset) / _numChannels;
     }
     int getBufferPosition1() {
@@ -783,11 +783,11 @@ public:
         return _crossfadeDurationInSamples;
     } 
 
-    int32_t getLoopStart() {
+    uint32_t getLoopStart() {
         return  _loop_start;// / _numChannels - _header_offset;
     }
 
-    int32_t getLoopFinish() {
+    uint32_t getLoopFinish() {
         return  _loop_finish;// / _numChannels - _header_offset;
     }
 
@@ -809,8 +809,8 @@ public:
     }
     void syncTrig() {
       if (isPlaying() && _tempo_bpm > 0.0) {
-        const size_t samples_per_beat = AUDIO_SAMPLE_RATE_EXACT * 60 / _tempo_bpm;
-        const size_t pos = getPosition() - getLoopStart();
+        const int samples_per_beat = AUDIO_SAMPLE_RATE_EXACT * 60 / _tempo_bpm;
+        const int pos = getPosition() - getLoopStart();
         int diff = pos % samples_per_beat;
 
         if (diff > samples_per_beat/2) {

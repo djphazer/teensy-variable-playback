@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <SD.h>
+#include <cstdint>
 #include <vector>
 #include <algorithm> // to get std::reverse
 #include "loop_type.h"
@@ -110,7 +111,7 @@ public:
 		
 		while (!_buffers.empty() && unused == _buffers[0]->status)
 		{
-			int nextIdx=0;
+			uint32_t nextIdx = 0;
 			bool doLoad = true;
 			bufferAction_e bufferAction = moveBuffer;
 			
@@ -134,7 +135,7 @@ public:
 							indexedbuffer* nl = _buffers.back();
 							int nextLast = nl->index; // get index of previous reload
 							*/
-							int nextLast = _buffers[MAX_NUM_BUFFERS - 1]->index;
+							uint32_t nextLast = _buffers[MAX_NUM_BUFFERS - 1]->index;
 							if (nextLast + 1 == nextIdx) 	// haven't looped back already...
 								nextIdx = _loop_start_blocks;	// ...go back to start
 							else
@@ -158,19 +159,19 @@ public:
 			}
 			else
 			{
-				nextIdx = findMinBuffer()->index - 1;	// might well be < 0
+				nextIdx = findMinBuffer()->index;	// might well be 0
 				switch (_loop_type)
 				{
 					case loop_type::looptype_none:
-						if (nextIdx < 0)
+						if (nextIdx == 0)
 							doLoad = false;
 						break;
 						
 					case loop_type::looptype_repeat:
-						if (nextIdx < _loop_start_blocks) 	// trying to go too far...
+						if (nextIdx <= _loop_start_blocks) 	// trying to go too far...
 						{
-							int nextLast = _buffers[MAX_NUM_BUFFERS - 1]->index;
-							if (nextLast - 1 == nextIdx) 	// haven't looped back already...
+							uint32_t nextLast = _buffers[MAX_NUM_BUFFERS - 1]->index;
+							if (nextLast == nextIdx) 	// haven't looped back already...
 								nextIdx = _loop_finish_blocks;	// ...go back to loop start (end of file)
 							else
 								nextIdx = nextLast - 1; // ...preload next block
@@ -178,7 +179,7 @@ public:
 						break;
 						
 					case loop_type::looptype_pingpong: // reverse, we're ponging
-						if (nextIdx < _loop_start_blocks) 	// trying to go too far...
+						if (nextIdx <= _loop_start_blocks) 	// trying to go too far...
 						{
 							bufferAction = nopBuffer;
 							if (read == _buffers[MAX_NUM_BUFFERS - 1]->status)  // last update used last buffer, so...
@@ -189,12 +190,12 @@ public:
 						}
 						break;
 						
-				}			
+                }
 			}
 			nextIdx <<= buffer_to_index_shift;
 			
 			if (doLoad)
-				loadBuffer(reload,nextIdx);
+				loadBuffer(reload, nextIdx);
 
 //			if (nopBuffer != bufferAction) // do stuff to buffer ordering
 			{
@@ -335,7 +336,7 @@ public:
 	 * Load provided buffer with sample data.
 	 */
 	size_t loadBuffer(indexedbuffer* buf,	//!< buffer to load
-					  int i)				//!< index of first sample
+					  uint32_t i)				//!< index of first sample
 	{		
 		// figure out file position to load into the buffer
 		size_t basePos = i & buffer_mask;
