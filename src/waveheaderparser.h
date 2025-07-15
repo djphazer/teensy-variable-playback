@@ -120,6 +120,7 @@ namespace WaveHeaderParser {
         return true;
     }
 
+    /*
     static bool readWaveHeader(const char *filename, wav_header &header, File &wavFile) {
         char buffer[36];
         int bytesRead = wavFile.read(buffer, 36);
@@ -129,6 +130,7 @@ namespace WaveHeaderParser {
         }
         return readWaveHeaderFromBuffer(buffer, header);
     }
+    */
 
     /* returns true for 'data' chunk */
     static bool readChunk(unsigned char *buffer, size_t offset, unsigned &chunkSize) {
