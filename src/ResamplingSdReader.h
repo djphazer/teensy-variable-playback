@@ -62,7 +62,7 @@ public:
                 _bufferPosition1 = _samples_to_start(0);
                 break;
             case play_start::play_start_loop:   // loop start
-                Serial.printf("Retriggering loop, pos: %u", _loop_start);
+                //Serial.printf("Retriggering loop, pos: %u", _loop_start);
                 _bufferPosition1 = _samples_to_start(_loop_start);
                 break;
             case play_start::play_start_arbitrary: // user-defined position

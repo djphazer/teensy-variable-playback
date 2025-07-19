@@ -115,7 +115,7 @@ public:
         TFile file = open(_filename);
 		
         if (!file) {
-            Serial.printf("Not able to open file: %s\n", _filename);
+            //Serial.printf("Not able to open file: %s\n", _filename);
             if (_filename) delete [] _filename;
             _filename = nullptr;
             return false;
@@ -136,7 +136,7 @@ public:
 
             WaveHeaderParser::readWaveHeaderFromBuffer((const char *) buffer, wav_header);
             if (wav_header.bit_depth != 16) {
-                Serial.printf("Needs 16 bit audio! Aborting.... (got %d)", wav_header.bit_depth);
+                //Serial.printf("Needs 16 bit audio! Aborting.... (got %d)", wav_header.bit_depth);
                 return false;
             }
             setNumChannels(wav_header.num_channels);
@@ -151,7 +151,7 @@ public:
                      && buffer[1] == 'd'
                      && buffer[2] == '3' )
                 {
-                  Serial.println("Found 'id3' chunk");
+                  //Serial.println("Found 'id3' chunk");
 
                   size_t sz = 512;
                   char id3buf[sz];
@@ -160,13 +160,13 @@ public:
                   if (tempo) _tempo_bpm = tempo;
                 }
 
-                Serial.printf("Skipping chunk, size %u bytes\n", chunkSize);
+                //Serial.printf("Skipping chunk, size %u bytes\n", chunkSize);
                 dataChunkOffset += chunkSize;
                 file.seek(36 + dataChunkOffset);
                 bytesRead = file.read(buffer, 8);
                 if (bytesRead != 8) return false;
             }
-            Serial.printf("Found 'data' chunk at %u, size: %u bytes", 36 + dataChunkOffset, chunkSize);
+            //Serial.printf("Found 'data' chunk at %u, size: %u bytes", 36 + dataChunkOffset, chunkSize);
 
             unsigned afterData = 36 + dataChunkOffset + chunkSize;
             // check for metadata after the data chunk
@@ -179,7 +179,7 @@ public:
                    && buffer[1] == 'd'
                    && buffer[2] == '3' )
               {
-                Serial.println("Found 'id3' chunk after 'data'");
+                //Serial.println("Found 'id3' chunk after 'data'");
 
                 size_t sz = 512;
                 char id3buf[sz];
@@ -200,7 +200,7 @@ public:
             if (bytesRead != 8) return false;
 
             if (!WaveHeaderParser::readDataHeader((unsigned char *)buffer, 0, data_header)) {
-                Serial.println("Not able to read header! Aborting...");
+                //Serial.println("Not able to read header! Aborting...");
                 return false;
             }
 
@@ -214,7 +214,7 @@ public:
             _play_state = STOPPED;
             if (_filename) delete [] _filename;
             _filename =  nullptr;
-            Serial.printf("Wave file contains no samples: %s\n", filename);
+            //Serial.printf("Wave file contains no samples: %s\n", filename);
             return false;
         }
 
