@@ -69,9 +69,8 @@ public:
                 _bufferPosition1 = _samples_to_start(_playback_start);
                 break;
         }
-        if (nullptr != _sourceBuffer) {
-            _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, _playbackRate >= 0.0f);
-        }
+        if (reload())
+          _play_state = PLAYING;
     }
 
     IndexableSDFile<BUFFER_SIZE_SD, BUFFER_COUNT_SD>* createSourceBuffer() override {

@@ -175,9 +175,11 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 
         bool available() { return reader->available(); }
         void play() {
-            if (reader->available())
+            if (reader->available()) {
+                disableResponse();
                 reader->play();
-            else
+                enableResponse();
+            } else
                 triggerEvent(evPlay, reader);
         }
         void stop() {
@@ -198,7 +200,9 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
         void getStatus(char* buf)  { return reader->getStatus(buf); }
         void triggerReload()  { return reader->triggerReload(this); }
         void retrigger() {
+            disableResponse();
             reader->retrigger();
+            enableResponse();
         }
 
         void update()
