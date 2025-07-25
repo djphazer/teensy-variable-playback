@@ -254,10 +254,9 @@ public:
     {
         if (isPlaying()) {
             stop();
-            reset();
         }
-
         if (available()) {
+            reset();
             _play_state = PLAYING;
             return true;
         }

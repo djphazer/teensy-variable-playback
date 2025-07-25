@@ -184,6 +184,7 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 			disableResponse();
 			clearEvent();
             reader->stop();
+            reader->reset();
 			enableResponse();
         }
         void pause(void) {
