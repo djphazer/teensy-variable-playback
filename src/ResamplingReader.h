@@ -805,7 +805,7 @@ public:
     void syncTrig() {
       if (isPlaying() && _tempo_bpm > 0.0) {
         const int samples_per_beat = AUDIO_SAMPLE_RATE_EXACT * 60 / _tempo_bpm;
-        const int pos = getPosition() - getLoopStart();
+        const int pos = getPosition() - ((_play_start == play_start::play_start_loop) * getLoopStart());
         int diff = pos % samples_per_beat;
 
         if (diff > samples_per_beat/2) {
