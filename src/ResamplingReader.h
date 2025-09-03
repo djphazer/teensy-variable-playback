@@ -9,11 +9,15 @@
 
 namespace newdigate {
 
-static constexpr uint32_t B2M = (uint32_t)((double)4294967296000.0 / AUDIO_SAMPLE_RATE_EXACT / 2.0); // 97352592
-
 template<class TArray, class TFile>
 class ResamplingReader {
 public:
+
+    constexpr uint32_t B2M() {
+      return (uint32_t)((double)4294967296000.0 / double(_file_sample_rate) / 2.0);
+      // 97352592 when sample rate is 44.1kHz
+    }
+
     enum PlayState {
         STOPPED = 0,
         PLAYING = 1,
@@ -58,7 +62,6 @@ public:
         _file_size = length * 2 * numChannels;
         _loop_start = 0;
         _loop_finish = length;
-		_file_samples = length;
         setNumChannels(numChannels);
 
         reset();
@@ -140,6 +143,7 @@ public:
                 return false;
             }
             setNumChannels(wav_header.num_channels);
+            _file_sample_rate = wav_header.sample_rate;
 
             bytesRead = file.read(buffer, 8);
             if (bytesRead != 8) return false;
@@ -570,7 +574,7 @@ private:
 
 public:	
     void setPlaybackRate(double f) {
-        _playbackRate = f;
+        _playbackRate = f * _file_sample_rate / AUDIO_SAMPLE_RATE_EXACT;
         if (!_useDualPlaybackHead) {
             if (f < 0.0) {
                 if  (_bufferPosition1 <= _header_offset) {
@@ -748,11 +752,11 @@ public:
     uint32_t positionMillis()
     {
         if (_file_size == 0) return 0;
-        return ((uint64_t)getPosition() * B2M * 2) >> 32;
+        return ((uint64_t)getPosition() * B2M() * 2) >> 32;
     }
     uint32_t lengthMillis()
     {
-        return ((uint64_t)_file_samples * B2M * 2) >> 32;
+        return ((uint64_t)_file_samples * B2M() * 2) >> 32;
     }
 
     uint32_t getPosition() {
@@ -804,7 +808,7 @@ public:
     }
     void syncTrig() {
       if (isPlaying() && _tempo_bpm > 0.0 && _playbackRate > 0.0) {
-        const int samples_per_beat = AUDIO_SAMPLE_RATE_EXACT * 60 / _tempo_bpm;
+        const int samples_per_beat = _file_sample_rate * 60 / _tempo_bpm;
         const int pos = getPosition() - ((_play_start == play_start::play_start_loop) * getLoopStart());
         int diff = pos % samples_per_beat;
 
@@ -821,7 +825,7 @@ public:
             _bufferPosition1 -= (diff * 2 * _numChannels);
         } else {
             // closest beat is the previous one - we need to stall
-            stall_time = millis() + uint32_t(diff * 1000 / (_playbackRate * AUDIO_SAMPLE_RATE_EXACT));
+            stall_time = millis() + uint32_t(diff * 1000 / (_playbackRate * _file_sample_rate));
             setPlaybackRate(0.0);
         }
       }
@@ -849,6 +853,7 @@ protected:
     uint32_t _loop_start = 0;
     uint32_t _loop_finish = 0;
     uint32_t _file_samples = 0;
+    int _file_sample_rate = AUDIO_SAMPLE_RATE_EXACT;
     int16_t _numChannels = -1;
     char *_filename = nullptr;
     TArray *_sourceBuffer = nullptr;
