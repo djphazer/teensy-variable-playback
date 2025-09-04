@@ -25,12 +25,45 @@ struct wav_header {
     int byte_rate = 0;          // 28 - 31
     short sample_alignment = 0; // 32 - 33
     short bit_depth  = 0;        // 34 - 35
+
+    wav_header(bool prefilled = false) {
+      if (prefilled) {
+        riff_header[0] = 'R';
+        riff_header[1] = 'I';
+        riff_header[2] = 'F';
+        riff_header[3] = 'F';
+        wave_header[0] = 'W';
+        wave_header[1] = 'A';
+        wave_header[2] = 'V';
+        wave_header[3] = 'E';
+        fmt_header[0] = 'f';
+        fmt_header[1] = 'm';
+        fmt_header[2] = 't';
+        fmt_header[3] = ' ';
+        fmt_chunk_size = 16;
+        audio_format = 1;
+        num_channels = 2;
+        sample_rate = AUDIO_SAMPLE_RATE;
+        sample_alignment = 4;
+        byte_rate = sample_rate * sample_alignment;
+        bit_depth = 16;
+      }
+    }
 };
 
 struct wav_data_header {
     // Data
     char data_header[4] = {0,0,0,0};    // 36 - 39
     unsigned int data_bytes = 0;// 40 - 43
+
+    wav_data_header(bool prefilled = false) {
+      if (prefilled) {
+        data_header[0] = 'd';
+        data_header[1] = 'a';
+        data_header[2] = 't';
+        data_header[3] = 'a';
+      }
+    }
 };
 
 // merely a collection of functions
