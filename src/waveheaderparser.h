@@ -68,6 +68,43 @@ struct wav_data_header {
 
 // merely a collection of functions
 namespace WaveHeaderParser {
+    static float getBPMfromAcid(char *buf) {
+      /** The acid chunk goes a little something like this:
+      **
+        [8-byte chunk header]
+      ** 4 bytes          'acid'
+      ** 4 bytes (int)     length of chunk starting at next byte
+      **
+        [24-byte chunk]
+      ** 4 bytes (int)     type of file:
+      **        this appears to be a bit mask,however some combinations
+      **        are probably impossible and/or qualified as "errors"
+      **
+      **        0x01 On: One Shot         Off: Loop
+      **        0x02 On: Root note is Set Off: No root
+      **        0x04 On: Stretch is On,   Off: Strech is OFF
+      **        0x08 On: Disk Based       Off: Ram based
+      **        0x10 On: ??????????       Off: ????????? (Acidizer puts that ON)
+      **
+      ** 2 bytes (short)      root note
+      **        if type 0x10 is OFF : [C,C#,(...),B] -> [0x30 to 0x3B]
+      **        if type 0x10 is ON  : [C,C#,(...),B] -> [0x3C to 0x47]
+      **         (both types fit on same MIDI pitch albeit different octaves, so who cares)
+      **
+      ** 2 bytes (short)      ??? always set to 0x8000
+      ** 4 bytes (float)      ??? seems to be always 0
+      ** 4 bytes (int)        number of beats
+      ** 2 bytes (short)      meter denominator   //always 4 in SF/ACID
+      ** 2 bytes (short)      meter numerator     //always 4 in SF/ACID
+      **                      //are we sure about the order?? usually its num/denom
+      ** 4 bytes (float)      tempo
+      **/
+      Serial.println("Parsing Tempo from ACID chunk...");
+
+      float tempo = *(float *)(buf+20);
+      return tempo;
+    }
+
     static uint16_t getBPMfromID3(char* buf, size_t len = 1024) {
       //Serial.println("Looking for Tempo...");
       uint16_t val = 0;

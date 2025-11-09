@@ -162,6 +162,17 @@ public:
                   sz = file.read(id3buf, chunkSize > sz ? sz : chunkSize);
                   uint16_t tempo = WaveHeaderParser::getBPMfromID3(id3buf, sz);
                   if (tempo) _tempo_bpm = tempo;
+                } else if (
+                       buffer[0] == 'a'
+                    && buffer[1] == 'c'
+                    && buffer[2] == 'i'
+                    && buffer[3] == 'd' )
+                {
+                  Serial.printf("Found 'acid' chunk, size=%u\n", chunkSize);
+                  char acidbuf[24]; // acid chunk should always be 24 bytes
+                  size_t sz = file.read(acidbuf, 24);
+                  float tempo = WaveHeaderParser::getBPMfromAcid(acidbuf);
+                  if (tempo) _tempo_bpm = tempo;
                 }
 
                 //Serial.printf("Skipping chunk, size %u bytes\n", chunkSize);
@@ -172,31 +183,33 @@ public:
             }
             //Serial.printf("Found 'data' chunk at %u, size: %u bytes", 36 + dataChunkOffset, chunkSize);
 
-            unsigned afterData = 36 + dataChunkOffset + chunkSize;
-            // check for metadata after the data chunk
-            do {
-              file.seek(afterData);
-              bytesRead = file.read(buffer, 8);
-              if (bytesRead != 8) break;
+            if (!_tempo_bpm) {
+              // check for metadata after the data chunk
+              unsigned afterData = 36 + dataChunkOffset + chunkSize;
+              do {
+                file.seek(afterData);
+                bytesRead = file.read(buffer, 8);
+                if (bytesRead != 8) break;
 
-              if (    buffer[0] == 'i'
-                   && buffer[1] == 'd'
-                   && buffer[2] == '3' )
-              {
-                //Serial.println("Found 'id3' chunk after 'data'");
+                if (    buffer[0] == 'i'
+                     && buffer[1] == 'd'
+                     && buffer[2] == '3' )
+                {
+                  //Serial.println("Found 'id3' chunk after 'data'");
 
-                size_t sz = 512;
-                char id3buf[sz];
-                sz = file.read(id3buf, chunkSize > sz ? sz : chunkSize);
-                uint16_t tempo = WaveHeaderParser::getBPMfromID3(id3buf, sz);
-                if (tempo) _tempo_bpm = tempo;
+                  size_t sz = 512;
+                  char id3buf[sz];
+                  sz = file.read(id3buf, chunkSize > sz ? sz : chunkSize);
+                  uint16_t tempo = WaveHeaderParser::getBPMfromID3(id3buf, sz);
+                  if (tempo) _tempo_bpm = tempo;
 
-                break;
-              }
+                  break;
+                }
 
-              afterData += static_cast<uint32_t>(buffer[7] << 24 | buffer[6] << 16 | buffer[5] << 8 | buffer[4]);
-              afterData += 8;
-            } while (afterData < _file_size);
+                afterData += static_cast<uint32_t>(buffer[7] << 24 | buffer[6] << 16 | buffer[5] << 8 | buffer[4]);
+                afterData += 8;
+              } while (afterData < _file_size);
+            }
 
             // jump back to data chunk
             file.seek(36 + dataChunkOffset);
