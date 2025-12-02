@@ -168,11 +168,15 @@ public:
                     && buffer[2] == 'i'
                     && buffer[3] == 'd' )
                 {
-                  Serial.printf("Found 'acid' chunk, size=%u\n", chunkSize);
-                  char acidbuf[24]; // acid chunk should always be 24 bytes
-                  size_t sz = file.read(acidbuf, 24);
-                  float tempo = WaveHeaderParser::getBPMfromAcid(acidbuf);
-                  if (tempo) _tempo_bpm = tempo;
+                  //Serial.printf("Found 'acid' chunk, size=%u\n", chunkSize);
+                  // acid chunk should always be 24 bytes, excluding 8-byte header
+                  size_t sz = 24;
+                  char acidbuf[sz];
+                  sz = file.read(acidbuf, sz);
+                  if (24 == sz) {
+                    float tempo = WaveHeaderParser::getBPMfromAcid(acidbuf);
+                    if (tempo) _tempo_bpm = tempo;
+                  }
                 }
 
                 //Serial.printf("Skipping chunk, size %u bytes\n", chunkSize);

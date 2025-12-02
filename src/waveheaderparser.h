@@ -99,7 +99,7 @@ namespace WaveHeaderParser {
       **                      //are we sure about the order?? usually its num/denom
       ** 4 bytes (float)      tempo
       **/
-      Serial.println("Parsing Tempo from ACID chunk...");
+      //Serial.println("Parsing Tempo from ACID chunk...");
 
       float tempo = *(float *)(buf+20);
       return tempo;
