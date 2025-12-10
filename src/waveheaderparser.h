@@ -13,18 +13,21 @@
 struct wav_header {
     // RIFF Header
     char riff_header[4] = {0,0,0,0};    // 00 - 03 - Contains "RIFF"
-    int header_chunk_size = 0;  // 04 - 07 - Size of the wav portion of the file, which follows the first 8 bytes. File size - 8
+    uint32_t header_chunk_size = 0;  // 04 - 07 - Size of the wav portion of the file, which follows the first 8 bytes. File size - 8
     char wave_header[4] = {0,0,0,0};    // 08 - 11 - Contains "WAVE"
+
+    // "JUNK" Header
+    // - a padding sub-chunk may or may not be present before the "fmt " chunk...
 
     // Format Header
     char fmt_header[4] = {0,0,0,0};     // 12 - 15 - Contains "fmt " (includes trailing space)
-    int fmt_chunk_size = 0;     // 16 - 19 - Should be 16 for PCM
-    short audio_format = 0;     // 20 - 21 - Should be 1 for PCM. 3 for IEEE Float
-    short num_channels = 0;     // 22 - 23
-    int sample_rate = 0;        // 24 - 27
-    int byte_rate = 0;          // 28 - 31
-    short sample_alignment = 0; // 32 - 33
-    short bit_depth  = 0;        // 34 - 35
+    uint32_t fmt_chunk_size = 0;     // 16 - 19 - Should be 16 for PCM
+    uint16_t audio_format = 0;     // 20 - 21 - Should be 1 for PCM. 3 for IEEE Float
+    uint16_t num_channels = 0;     // 22 - 23
+    uint32_t sample_rate = 0;        // 24 - 27
+    uint32_t byte_rate = 0;          // 28 - 31
+    uint16_t sample_alignment = 0; // 32 - 33
+    uint16_t bit_depth  = 0;        // 34 - 35
 
     wav_header(bool prefilled = false) {
       if (prefilled) {
@@ -135,57 +138,69 @@ namespace WaveHeaderParser {
         return 0;
     }
 
+    static bool parseFormatChunk(const char *buffer, wav_header &header);
+
     static bool readWaveHeaderFromBuffer(const char *buffer, wav_header &header) {
         if (buffer[0] != 'R' || buffer[1] != 'I' || buffer[2] != 'F' || buffer[3] != 'F') {
-            //Serial.printf("expected RIFF (was %s)\n", buffer);
+            //Serial.printf("expected RIFF (was '%.4s')\n", buffer);
             return false;
         }
         for (int i=0; i < 4; i++)
             header.riff_header[i] = buffer[i];
 
-        unsigned char *b = (unsigned char*)buffer;
+        // this is easier, but maybe not portable? endianness, etc.
+        header.header_chunk_size = *(uint32_t*)(buffer+4);
 
-        auto header_chunk_size = static_cast<unsigned long>(b[7] << 24 | b[6] << 16 | b[5] << 8 | b[4]);
-        header.header_chunk_size = header_chunk_size;
-
+        if (buffer[8] != 'W' || buffer[9] != 'A' || buffer[10] != 'V' || buffer[11] != 'E') {
+            //Serial.printf("expected WAVE (was '%.4s')\n", buffer[8]);
+            return false;
+        }
         for (int i=0; i < 4; i++)
             header.wave_header[i] = buffer[i+8];
-        if (buffer[8] != 'W' || buffer[9] != 'A' || buffer[10] != 'V' || buffer[11] != 'E') {
-            //Serial.printf("expected WAVE (was %s)\n", buffer[8]);
+
+        //return parseFormatChunk(buffer+12, header);
+        return true;
+    }
+
+    static bool parseFormatChunk(const char *buf, wav_header &header) {
+        if (buf[0] != 'f' || buf[1] != 'm' || buf[2] != 't' || buf[3] != ' ') {
+            //Serial.printf("expected 'fmt ' (was '%.4s')\n", buf[0]);
             return false;
         }
-
         for (int i=0; i < 4; i++)
-            header.fmt_header[i] = buffer[i+12];
-        if (buffer[12] != 'f' || buffer[13] != 'm' || buffer[14] != 't' || buffer[15] != ' ') {
-            //Serial.printf("expected 'fmt ' (was %s)\n",  buffer[12]);
-            return false;
-        }
+            header.fmt_header[i] = buf[i];
 
-        auto fmt_chunk_size = static_cast<unsigned long>(b[19] << 24 | b[18] << 16 | b[17] << 8 | b[16]);
-        header.fmt_chunk_size = fmt_chunk_size;
+        // chunk size should be 16 for standard PCM, but might be 18 or 40 with "extensions"
+        /*
+        auto fmt_chunk_size = static_cast<unsigned long>(buf[7] << 24 | buf[6] << 16 | buf[5] << 8 | buf[4]);
         if (fmt_chunk_size != 16) {
             //Serial.printf("chunk size should be 16 for PCM wave data... (was %d)\n", fmt_chunk_size);
             return false;
         }
+        */
 
-        auto audio_format = static_cast<unsigned long>((b[21] << 8) | b[20]);
+        // I don't care about wave format extensions, so we'll ignore that and assume 16
+        header.fmt_chunk_size = 16;
+
+        auto audio_format = static_cast<unsigned long>((buf[9] << 8) | buf[8]);
         header.audio_format = audio_format;
 
-        auto num_channels = static_cast<unsigned long>((b[23] << 8) | b[22]);
+        auto num_channels = static_cast<unsigned long>((buf[11] << 8) | buf[10]);
         header.num_channels = num_channels;
 
-        uint32_t sample_rate = static_cast<uint32_t>(b[27] << 24 | b[26] << 16 | b[25] << 8 | b[24]);
+        uint32_t sample_rate = static_cast<uint32_t>(buf[15] << 24 | buf[14] << 16 | buf[13] << 8 | buf[12]);
         header.sample_rate = sample_rate;
 
-        uint32_t byte_rate = static_cast<uint32_t>(b[31] << 24 | b[30] << 16 | b[29] << 8 | b[28]);
+        uint32_t byte_rate = static_cast<uint32_t>(buf[19] << 24 | buf[18] << 16 | buf[17] << 8 | buf[16]);
         header.byte_rate = byte_rate;
 
-        auto sample_alignment = static_cast<unsigned long>((b[33] << 8) | b[32]);
+        auto sample_alignment = static_cast<unsigned long>((buf[21] << 8) | buf[20]);
         header.sample_alignment = sample_alignment;
 
-        auto bit_depth = static_cast<unsigned long>(b[35] << 8 | b[34]);
+        auto bit_depth = static_cast<unsigned long>(buf[23] << 8 | buf[22]);
         header.bit_depth = bit_depth;
+
+        // extra wave format extensions may exist beyond 24 bytes...
 
         return true;
     }

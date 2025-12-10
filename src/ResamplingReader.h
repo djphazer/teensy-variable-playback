@@ -130,28 +130,44 @@ public:
             wav_header wav_header;
             wav_data_header data_header;
 
-            char buffer[36];
-            size_t bytesRead = file.read(buffer, 36);
-            if (bytesRead < 36) {
+            // first 12 bytes should be "RIFF", size, "WAVE"
+            char buffer[32];
+            size_t bytesRead = file.read(buffer, 12);
+            if (bytesRead < 12) {
+                //Serial.println("premature EOF!");
+                close();
+                return false;
+            }
+            if ( !WaveHeaderParser::readWaveHeaderFromBuffer((const char *) buffer, wav_header) ) {
                 close();
                 return false;
             }
 
-            WaveHeaderParser::readWaveHeaderFromBuffer((const char *) buffer, wav_header);
-            if (wav_header.bit_depth != 16) {
-                //Serial.printf("Needs 16 bit audio! Aborting.... (got %d)", wav_header.bit_depth);
-                return false;
-            }
-            setNumChannels(wav_header.num_channels);
-            _file_sample_rate = wav_header.sample_rate;
-
+            // read in next chunk header
             bytesRead = file.read(buffer, 8);
             if (bytesRead != 8) return false;
 
-            unsigned dataChunkOffset = 0, chunkSize = 0;
+            unsigned dataChunkOffset = 12, chunkSize = 0;
             while (!WaveHeaderParser::readChunk((unsigned char *)buffer, 0, chunkSize))
             {
-                if (    buffer[0] == 'i'
+                if (   buffer[0] == 'f'
+                    && buffer[1] == 'm'
+                    && buffer[2] == 't'
+                    && buffer[3] == ' ' )
+                {
+                  //Serial.printf("Found 'fmt ' chunk!");
+                  // found the format header, need 16 more bytes
+                  bytesRead = file.read(buffer+8, 16);
+                  WaveHeaderParser::parseFormatChunk(buffer, wav_header);
+
+                  if (wav_header.bit_depth != 16) {
+                      //Serial.printf("Needs 16 bit audio! Aborting.... (got %d)", wav_header.bit_depth);
+                      return false;
+                  }
+                  setNumChannels(wav_header.num_channels);
+                  _file_sample_rate = wav_header.sample_rate;
+                } else if (
+                        buffer[0] == 'i'
                      && buffer[1] == 'd'
                      && buffer[2] == '3' )
                 {
@@ -170,26 +186,28 @@ public:
                 {
                   //Serial.printf("Found 'acid' chunk, size=%u\n", chunkSize);
                   // acid chunk should always be 24 bytes, excluding 8-byte header
-                  size_t sz = 24;
-                  char acidbuf[sz];
-                  sz = file.read(acidbuf, sz);
-                  if (24 == sz) {
-                    float tempo = WaveHeaderParser::getBPMfromAcid(acidbuf);
+                  bytesRead = file.read(buffer, 24);
+                  if (24 == bytesRead) {
+                    float tempo = WaveHeaderParser::getBPMfromAcid(buffer);
                     if (tempo) _tempo_bpm = tempo;
                   }
                 }
 
-                //Serial.printf("Skipping chunk, size %u bytes\n", chunkSize);
-                dataChunkOffset += chunkSize;
-                file.seek(36 + dataChunkOffset);
+                // other chunks, including "JUNK" are simply ignored
+
+                //Serial.printf("Done checking chunk, size %u bytes\n", chunkSize);
+                dataChunkOffset += chunkSize; // includes 8-byte header size
+
+                // read in next chunk header
+                file.seek(dataChunkOffset);
                 bytesRead = file.read(buffer, 8);
                 if (bytesRead != 8) return false;
             }
-            //Serial.printf("Found 'data' chunk at %u, size: %u bytes", 36 + dataChunkOffset, chunkSize);
+            //Serial.printf("Found 'data' chunk at %u, size: %u bytes", dataChunkOffset, chunkSize);
 
             if (!_tempo_bpm) {
               // check for metadata after the data chunk
-              unsigned afterData = 36 + dataChunkOffset + chunkSize;
+              unsigned afterData = dataChunkOffset + chunkSize;
               do {
                 file.seek(afterData);
                 bytesRead = file.read(buffer, 8);
@@ -216,7 +234,7 @@ public:
             }
 
             // jump back to data chunk
-            file.seek(36 + dataChunkOffset);
+            file.seek(dataChunkOffset);
             bytesRead = file.read(buffer, 8);
             if (bytesRead != 8) return false;
 
@@ -225,7 +243,7 @@ public:
                 return false;
             }
 
-            _header_offset = (44 + dataChunkOffset) / 2;
+            _header_offset = (8 + dataChunkOffset) / 2;
             _file_samples = ((data_header.data_bytes) / 2);
         } else
             _file_samples = _file_size / 2;
