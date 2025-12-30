@@ -778,7 +778,18 @@ public:
     void setHeaderSizeInBytes(uint32_t headerSizeInBytes) {
         _header_offset = headerSizeInBytes / 2;
     }
-    
+
+    void setBeatStart(uint16_t beatnum) {
+        if (_tempo_bpm == 0.0) {
+          _play_start = play_start::play_start_sample;
+          _playback_start = 0;
+          return;
+        }
+        const int samples_per_beat = _file_sample_rate * 60 / _tempo_bpm;
+        _play_start = play_start::play_start_arbitrary;
+        _playback_start = samples_per_beat * beatnum;
+    }
+
     void setPlayStart(play_start start, uint32_t playback_start) {
         _play_start = start;
         _playback_start = playback_start;

@@ -128,6 +128,9 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
             return reader->getLoopType();
         }
 
+        void setBeatStart(uint16_t beatnum) {
+            reader->setBeatStart(beatnum);
+        }
         void setLoopStart(uint32_t loop_start) {
             reader->setLoopStart(loop_start);
         }
