@@ -257,7 +257,7 @@ public:
             return false;
         }
 
-        //_file_samples /= _numChannels;
+        _file_samples /= _numChannels;
         _loop_start = 0;
         _loop_finish = _file_samples;
 
