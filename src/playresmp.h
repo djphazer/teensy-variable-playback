@@ -228,26 +228,31 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
                 if (reader->available()) {
                     // we can read more data from the file...
                     n = reader->read((void**)data, AUDIO_BLOCK_SAMPLES);
-                    for (int channel=0; channel < _numChannels; channel++) {
-                        if (n < AUDIO_BLOCK_SAMPLES) {
-                          // end of file, fade out last block
-                          const size_t fadelen = AUDIO_BLOCK_SAMPLES - n;
-                          for (size_t i = 0; i < fadelen; ++i) {
-                            data[channel][i] = data[channel][i] * (fadelen - i) / fadelen;
-                          }
-                          memset( &blocks[channel]->data[n], 0, fadelen * 2);
+                    for (int channel = 0; channel < _numChannels; channel++) {
+                      if (n < AUDIO_BLOCK_SAMPLES) {
+                        // end of file, fade out last block
+                        size_t si; // sample index
+                        for (si = 0; si < n; ++si) {
+                          data[channel][si] = data[channel][si] * (n - si) / n;
                         }
-                        transmit(blocks[channel], channel);
+                        // set remaining bytes of block to zero
+                        while (si < AUDIO_BLOCK_SAMPLES) data[channel][si++] = 0;
+
+                        // previously used this instead:
+                        //memset(&data[channel][n], 0, (AUDIO_BLOCK_SAMPLES - n) * 2);
+                        // I suspect it was being eaten by cache optimization or something?
+                      }
+                      transmit(blocks[channel], channel);
                     }
 
-                    if(_numChannels == 1) {
-                        transmit(blocks[0], 1);
+                    if (_numChannels == 1) {
+                      transmit(blocks[0], 1);
                     }
 
                     if (AUDIO_BLOCK_SAMPLES == n) // got enough samples...
-                        triggerEvent(evReload,this); // ...load more if needed
+                      triggerEvent(evReload, this); // ...load more if needed
                     else
-                        triggerEvent(evPause,this); // ...end of file, finish playing
+                      triggerEvent(evPause, this); // ...end of file, finish playing
                 } else {
                     triggerEvent(evClose,this);
                 }
